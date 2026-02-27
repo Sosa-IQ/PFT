@@ -44,7 +44,7 @@ def get_transactions(
     """Return a filtered list of transactions, newest first."""
     query = (
         supabase.table("transactions")
-        .select("id, date, merchant_name, category, amount, note, is_recurring")
+        .select("id, date, merchant_name, category, amount, note, is_recurring, accounts(account_name)")
         .eq("user_id", user_id)
         .order("date", desc=True)
         .limit(limit)
@@ -56,7 +56,12 @@ def get_transactions(
     if end_date:
         query = query.lte("date", end_date)
 
-    return query.execute().data or []
+    rows = query.execute().data or []
+    # Flatten the nested accounts join into a top-level account_name field.
+    for row in rows:
+        account = row.pop("accounts", None)
+        row["account_name"] = (account or {}).get("account_name")
+    return rows
 
 
 def get_spending_by_category(

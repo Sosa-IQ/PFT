@@ -45,11 +45,12 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
             sign = "-" if t["amount"] > 0 else "+"  # debit vs credit
             merchant = t.get("merchant_name") or "Unknown"
             cat = t.get("category") or "Uncategorized"
+            account = t.get("account_name") or "Unknown account"
             note = f"  [{t['note']}]" if t.get("note") else ""
             recurring = " (recurring)" if t.get("is_recurring") else ""
             lines.append(
                 f"  {t['date']}  {sign}${abs(t['amount']):.2f}  "
-                f"{merchant}  [{cat}]{note}{recurring}"
+                f"{merchant}  [{cat}]  ({account}){note}{recurring}"
             )
 
         return "\n".join(lines)
