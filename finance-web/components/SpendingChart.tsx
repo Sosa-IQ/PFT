@@ -40,7 +40,7 @@ export default function SpendingChart({ data }: Props) {
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, '']} />
+            <Tooltip formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]} />
             <Legend
               iconSize={10}
               formatter={(value: string) => (
