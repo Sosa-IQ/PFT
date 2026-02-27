@@ -1,5 +1,5 @@
 """
-tools/net_worth.py — Tool for calculating the user's current net worth.
+tools/net_worth.py — Tools for viewing accounts and calculating net worth.
 """
 
 from mcp.server.fastmcp import FastMCP
@@ -11,7 +11,55 @@ DEBT_ACCOUNT_TYPES = {"credit", "loan"}
 
 
 def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
-    """Register net worth tools on the MCP server."""
+    """Register net worth and accounts tools on the MCP server."""
+
+    @mcp.tool()
+    def get_accounts() -> str:
+        """
+        List all linked bank accounts and manually-tracked liabilities.
+        Each entry shows the account name, current balance, and whether
+        it is an asset (money you own) or debt (money you owe).
+        """
+        accounts = db.get_accounts(supabase, user_id)
+        liabilities = db.get_liabilities(supabase, user_id)
+
+        if not accounts and not liabilities:
+            return (
+                "No accounts or liabilities found. "
+                "Connect a bank account via Plaid in the web app settings."
+            )
+
+        lines = ["Accounts:\n"]
+
+        # ── Bank accounts (from Plaid) ─────────────────────────────────────
+        if accounts:
+            for a in accounts:
+                balance = float(a.get("current_balance") or 0)
+                name = a.get("account_name") or a.get("account_type") or "Account"
+                institution = a.get("institution_name") or "Unknown bank"
+                acct_type = (a.get("account_type") or "").lower()
+                classification = "DEBT" if acct_type in DEBT_ACCOUNT_TYPES else "ASSET"
+                lines.append(
+                    f"  [{classification}]  {institution} — {name:<25}  ${balance:>10.2f}"
+                )
+        else:
+            lines.append("  No bank accounts linked yet.")
+
+        # ── Manual liabilities ─────────────────────────────────────────────
+        if liabilities:
+            lines.append("")
+            lines.append("  Manual liabilities:")
+            for l in liabilities:
+                balance = float(l.get("balance") or 0)
+                name = l.get("name", "Unknown")
+                debt_type = f"  ({l['type']})" if l.get("type") else ""
+                apr = l.get("apr")
+                apr_str = f"  APR {apr}%" if apr else ""
+                lines.append(
+                    f"  [DEBT]  {name:<35}  ${balance:>10.2f}{debt_type}{apr_str}"
+                )
+
+        return "\n".join(lines)
 
     @mcp.tool()
     def get_net_worth() -> str:
