@@ -28,6 +28,7 @@ class Transaction(BaseModel):
     amount: float
     note: Optional[str] = None
     is_recurring: bool = False
+    account_name: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +50,7 @@ def list_transactions(
     """
     query = (
         supabase.table("transactions")
-        .select("id, date, merchant_name, category, amount, note, is_recurring")
+        .select("id, date, merchant_name, category, amount, note, is_recurring, accounts(account_name)")
         .eq("user_id", user["id"])
         .order("date", desc=True)
         .limit(limit)
@@ -62,4 +63,10 @@ def list_transactions(
     if end_date:
         query = query.lte("date", end_date)
 
-    return query.execute().data or []
+    rows = query.execute().data or []
+    # Supabase returns the joined accounts row as a nested dict.
+    # Flatten it so the response model sees a plain account_name field.
+    for row in rows:
+        account = row.pop("accounts", None)
+        row["account_name"] = (account or {}).get("account_name")
+    return rows
