@@ -193,3 +193,202 @@ def get_liabilities(supabase: Client, user_id: str) -> list[dict]:
         .data
         or []
     )
+
+
+# ---------------------------------------------------------------------------
+# Write: Budgets
+# ---------------------------------------------------------------------------
+
+def upsert_budget(
+    supabase: Client, user_id: str, category: str, monthly_limit: float
+) -> dict:
+    """
+    Create or replace a budget for the given category.
+    Uses upsert so a single call handles both create and update.
+    """
+    return (
+        supabase.table("budgets")
+        .upsert(
+            {"user_id": user_id, "category": category, "monthly_limit": monthly_limit},
+            on_conflict="user_id,category",
+        )
+        .execute()
+        .data[0]
+    )
+
+
+def get_budget_by_category(
+    supabase: Client, user_id: str, category: str
+) -> dict | None:
+    """Return a single budget row for the given category, or None if not found."""
+    rows = (
+        supabase.table("budgets")
+        .select("category, monthly_limit")
+        .eq("user_id", user_id)
+        .eq("category", category)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
+# ---------------------------------------------------------------------------
+# Write: Savings Goals
+# ---------------------------------------------------------------------------
+
+def insert_savings_goal(
+    supabase: Client,
+    user_id: str,
+    name: str,
+    target_amount: float,
+    deadline: str | None,
+) -> dict:
+    """Insert a new savings goal. Raises if a goal with the same name already exists."""
+    row = {"user_id": user_id, "name": name, "target_amount": target_amount, "current_amount": 0.0}
+    if deadline:
+        row["deadline"] = deadline
+    return (
+        supabase.table("savings_goals")
+        .insert(row)
+        .execute()
+        .data[0]
+    )
+
+
+def update_goal_current_amount(
+    supabase: Client, user_id: str, name: str, current_amount: float
+) -> dict | None:
+    """
+    Update the current_amount for a savings goal by name.
+    Returns the updated row, or None if no matching goal was found.
+    """
+    rows = (
+        supabase.table("savings_goals")
+        .update({"current_amount": current_amount})
+        .eq("user_id", user_id)
+        .eq("name", name)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
+def get_goal_by_name(
+    supabase: Client, user_id: str, name: str
+) -> dict | None:
+    """Return a single savings goal row by name, or None if not found."""
+    rows = (
+        supabase.table("savings_goals")
+        .select("name, target_amount, current_amount, deadline")
+        .eq("user_id", user_id)
+        .eq("name", name)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
+# ---------------------------------------------------------------------------
+# Write: Liabilities
+# ---------------------------------------------------------------------------
+
+def insert_liability(
+    supabase: Client,
+    user_id: str,
+    name: str,
+    balance: float,
+    apr: float | None,
+    liability_type: str | None,
+    minimum_payment: float | None,
+) -> dict:
+    """Insert a new manually-tracked liability."""
+    row: dict = {"user_id": user_id, "name": name, "balance": balance}
+    if apr is not None:
+        row["apr"] = apr
+    if liability_type:
+        row["type"] = liability_type
+    if minimum_payment is not None:
+        row["minimum_payment"] = minimum_payment
+    return (
+        supabase.table("liabilities")
+        .insert(row)
+        .execute()
+        .data[0]
+    )
+
+
+def delete_liability_by_name(
+    supabase: Client, user_id: str, name: str
+) -> int:
+    """
+    Delete a liability by name.
+    Returns the number of rows deleted (0 if not found, 1 if deleted).
+    """
+    rows = (
+        supabase.table("liabilities")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("name", name)
+        .execute()
+        .data
+        or []
+    )
+    return len(rows)
+
+
+def get_liability_by_name(
+    supabase: Client, user_id: str, name: str
+) -> dict | None:
+    """Return a single liability row by name, or None if not found."""
+    rows = (
+        supabase.table("liabilities")
+        .select("name, balance, apr, type, minimum_payment")
+        .eq("user_id", user_id)
+        .eq("name", name)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
+# ---------------------------------------------------------------------------
+# Write: Transactions
+# ---------------------------------------------------------------------------
+
+def update_transaction_category(
+    supabase: Client, user_id: str, transaction_id: str, new_category: str
+) -> dict | None:
+    """
+    Update the category (and clear any auto-assigned flag) for a transaction.
+    Returns the updated row, or None if the transaction was not found.
+    """
+    rows = (
+        supabase.table("transactions")
+        .update({"category": new_category})
+        .eq("user_id", user_id)
+        .eq("id", transaction_id)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
+def get_transaction_by_id(
+    supabase: Client, user_id: str, transaction_id: str
+) -> dict | None:
+    """Return a single transaction row by id, or None if not found."""
+    rows = (
+        supabase.table("transactions")
+        .select("id, date, merchant_name, category, amount")
+        .eq("user_id", user_id)
+        .eq("id", transaction_id)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
