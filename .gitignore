@@ -2,6 +2,11 @@
 .mcp.json
 *.DS_Store
 
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+
 # Python
 venv/
 __pycache__/
@@ -13,5 +18,11 @@ __pycache__/
 dist/
 build/
 
-# Environment files — never commit secrets
-.env
+# Next.js
+finance-web/.next/
+finance-web/out/
+finance-web/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
