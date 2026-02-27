@@ -30,6 +30,7 @@ import tools.transactions as transactions_tools
 import tools.budgets as budgets_tools
 import tools.goals as goals_tools
 import tools.net_worth as net_worth_tools
+import tools.liabilities as liabilities_tools
 
 load_dotenv()
 
@@ -40,9 +41,13 @@ load_dotenv()
 mcp = FastMCP(
     name="Personal Finance",
     instructions=(
-        "You have access to the user's personal financial data. "
-        "Use the tools to answer questions about their spending, budgets, "
-        "savings goals, and net worth. Always be specific with numbers and dates. "
+        "You have access to the user's personal financial data and can make changes on their behalf. "
+        "Read tools: get_transactions, get_spending_summary, get_budget_status, get_savings_goals, get_accounts, get_net_worth. "
+        "Write tools: set_budget, update_budget, add_savings_goal, update_goal_progress, "
+        "add_liability, delete_liability, recategorize_transaction. "
+        "All write tools require confirmed=True to execute — always show the preview first and "
+        "ask the user to confirm before calling with confirmed=True. "
+        "Always be specific with numbers and dates. "
         "If data is missing or there are no results, say so clearly."
     ),
 )
@@ -71,6 +76,7 @@ transactions_tools.register(mcp, supabase, user_id)
 budgets_tools.register(mcp, supabase, user_id)
 goals_tools.register(mcp, supabase, user_id)
 net_worth_tools.register(mcp, supabase, user_id)
+liabilities_tools.register(mcp, supabase, user_id)
 
 # ---------------------------------------------------------------------------
 # Run
