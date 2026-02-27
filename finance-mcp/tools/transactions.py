@@ -1,5 +1,5 @@
 """
-tools/transactions.py — Tools for querying transactions and spending summaries.
+tools/transactions.py — Tools for querying transactions, spending summaries, and recategorizing.
 """
 
 from datetime import date
@@ -100,3 +100,57 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
 
         lines.append(f"\n  {'Total':<25} ${grand_total:>9.2f}")
         return "\n".join(lines)
+
+    @mcp.tool()
+    def recategorize_transaction(
+        transaction_id: str,
+        new_category: str,
+        confirmed: bool = False,
+    ) -> str:
+        """
+        Change the category of a single transaction.
+
+        Useful for fixing miscategorised transactions so budgets and
+        spending summaries reflect the correct categories.
+
+        When confirmed=False (default), returns a preview without saving.
+        Set confirmed=True to apply the change.
+
+        Args:
+            transaction_id: The UUID of the transaction to update.
+                            Use get_transactions to find transaction IDs.
+            new_category:   The corrected category name (e.g. "Groceries", "Utilities").
+            confirmed:      Set to True to save. Default is False (preview only).
+        """
+        if not transaction_id or not new_category:
+            return "Both transaction_id and new_category are required."
+
+        txn = db.get_transaction_by_id(supabase, user_id, transaction_id)
+        if not txn:
+            return (
+                f"No transaction found with id '{transaction_id}'. "
+                "Use get_transactions to find the correct id."
+            )
+
+        old_category = txn.get("category") or "Uncategorized"
+        merchant = txn.get("merchant_name") or "Unknown"
+        amount = float(txn.get("amount", 0))
+        txn_date = txn.get("date", "")
+
+        preview = (
+            f"Recategorize transaction — preview:\n"
+            f"  Date:         {txn_date}\n"
+            f"  Merchant:     {merchant}\n"
+            f"  Amount:       ${amount:.2f}\n"
+            f"  Old category: {old_category}\n"
+            f"  New category: {new_category}\n"
+        )
+
+        if not confirmed:
+            return preview + "\nTo apply this change, call recategorize_transaction again with confirmed=True."
+
+        result = db.update_transaction_category(supabase, user_id, transaction_id, new_category)
+        if not result:
+            return "Transaction update failed — it may have been deleted."
+
+        return preview + "\nTransaction recategorized."

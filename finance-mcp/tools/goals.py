@@ -1,5 +1,5 @@
 """
-tools/goals.py — Tool for viewing savings goals and projected completion.
+tools/goals.py — Tools for viewing and modifying savings goals.
 """
 
 from datetime import date, timedelta
@@ -65,3 +65,105 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
             lines.append("")  # blank line between goals
 
         return "\n".join(lines)
+
+    @mcp.tool()
+    def add_savings_goal(
+        name: str,
+        target_amount: float,
+        deadline: str = "",
+        confirmed: bool = False,
+    ) -> str:
+        """
+        Create a new savings goal.
+
+        When confirmed=False (default), returns a preview without saving.
+        Set confirmed=True to create the goal.
+
+        Args:
+            name:          A short descriptive name (e.g. "Vacation", "Emergency Fund").
+            target_amount: Dollar amount to reach.
+            deadline:      Optional target date in YYYY-MM-DD format. Leave blank for no deadline.
+            confirmed:     Set to True to save. Default is False (preview only).
+        """
+        if target_amount <= 0:
+            return "target_amount must be greater than zero."
+
+        # Validate deadline format if provided.
+        resolved_deadline: str | None = None
+        if deadline:
+            try:
+                date.fromisoformat(deadline)
+                resolved_deadline = deadline
+            except ValueError:
+                return f"Invalid deadline '{deadline}'. Use YYYY-MM-DD format."
+
+        # Prevent duplicate goal names.
+        existing = db.get_goal_by_name(supabase, user_id, name)
+        if existing:
+            return (
+                f"A savings goal named '{name}' already exists "
+                f"(${float(existing['current_amount']):.2f} / ${float(existing['target_amount']):.2f}). "
+                "Use update_goal_progress to update it."
+            )
+
+        deadline_str = f"  Deadline:  {resolved_deadline}\n" if resolved_deadline else "  Deadline:  None\n"
+        preview = (
+            f"Add savings goal — preview:\n"
+            f"  Name:      {name}\n"
+            f"  Target:    ${target_amount:.2f}\n"
+            f"{deadline_str}"
+        )
+
+        if not confirmed:
+            return preview + "\nTo create this goal, call add_savings_goal again with confirmed=True."
+
+        db.insert_savings_goal(supabase, user_id, name, target_amount, resolved_deadline)
+        return preview + "\nSavings goal created."
+
+    @mcp.tool()
+    def update_goal_progress(
+        name: str,
+        current_amount: float,
+        confirmed: bool = False,
+    ) -> str:
+        """
+        Update how much has been saved toward a goal.
+
+        When confirmed=False (default), returns a preview without saving.
+        Set confirmed=True to apply the update.
+
+        Args:
+            name:           Name of the existing savings goal to update.
+            current_amount: New total amount saved so far in dollars.
+            confirmed:      Set to True to save. Default is False (preview only).
+        """
+        if current_amount < 0:
+            return "current_amount cannot be negative."
+
+        goal = db.get_goal_by_name(supabase, user_id, name)
+        if not goal:
+            return (
+                f"No savings goal named '{name}' found. "
+                "Use get_savings_goals to see existing goals."
+            )
+
+        target = float(goal["target_amount"])
+        old_amount = float(goal["current_amount"])
+        pct = (current_amount / target * 100) if target else 0
+        delta = current_amount - old_amount
+        delta_str = f"+${delta:.2f}" if delta >= 0 else f"-${abs(delta):.2f}"
+
+        preview = (
+            f"Update goal progress — preview:\n"
+            f"  Goal:       {name}\n"
+            f"  Was:        ${old_amount:.2f}\n"
+            f"  Now:        ${current_amount:.2f}  ({delta_str})  {pct:.0f}% of ${target:.2f}\n"
+        )
+        if current_amount >= target:
+            preview += "  ** Goal reached! **\n"
+
+        if not confirmed:
+            return preview + "\nTo apply this change, call update_goal_progress again with confirmed=True."
+
+        db.update_goal_current_amount(supabase, user_id, name, current_amount)
+        return preview + "\nGoal progress updated."
