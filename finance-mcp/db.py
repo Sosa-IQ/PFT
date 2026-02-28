@@ -8,7 +8,7 @@ web app's anon-key client as an additional safety net.
 """
 
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from collections import defaultdict
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -392,3 +392,162 @@ def get_transaction_by_id(
         or []
     )
     return rows[0] if rows else None
+
+
+# ---------------------------------------------------------------------------
+# OAuth / MCP auth tables
+# ---------------------------------------------------------------------------
+
+def _parse_dt(dt_str: str) -> datetime:
+    """Parse an ISO 8601 datetime string, handling both +00:00 and Z suffixes."""
+    return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+
+
+def get_oauth_client(supabase: Client, client_id: str) -> dict | None:
+    """Return an OAuth client row by client_id, or None if not found."""
+    rows = (
+        supabase.table("oauth_clients")
+        .select("*")
+        .eq("client_id", client_id)
+        .execute()
+        .data
+        or []
+    )
+    return rows[0] if rows else None
+
+
+def save_oauth_client(supabase: Client, row: dict) -> None:
+    """Insert a new OAuth client record."""
+    supabase.table("oauth_clients").insert(row).execute()
+
+
+def save_pending_request(supabase: Client, row: dict) -> None:
+    """Insert a pending OAuth authorization request."""
+    supabase.table("oauth_pending_requests").insert(row).execute()
+
+
+def get_pending_request(supabase: Client, rid: str) -> dict | None:
+    """Return a pending request by ID if it has not expired, else None."""
+    rows = (
+        supabase.table("oauth_pending_requests")
+        .select("*")
+        .eq("id", rid)
+        .execute()
+        .data
+        or []
+    )
+    if not rows:
+        return None
+    row = rows[0]
+    if datetime.now(timezone.utc) > _parse_dt(row["expires_at"]):
+        return None
+    return row
+
+
+def expire_pending_request(supabase: Client, rid: str) -> None:
+    """Mark a pending request as expired by back-dating its expires_at."""
+    supabase.table("oauth_pending_requests").update(
+        {"expires_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()}
+    ).eq("id", rid).execute()
+
+
+def save_auth_code(supabase: Client, row: dict) -> None:
+    """Insert an OAuth authorization code."""
+    supabase.table("oauth_auth_codes").insert(row).execute()
+
+
+def get_auth_code(supabase: Client, code: str) -> dict | None:
+    """Return an unused, unexpired authorization code row, or None."""
+    rows = (
+        supabase.table("oauth_auth_codes")
+        .select("*")
+        .eq("code", code)
+        .eq("used", False)
+        .execute()
+        .data
+        or []
+    )
+    if not rows:
+        return None
+    row = rows[0]
+    if datetime.now(timezone.utc) > _parse_dt(row["expires_at"]):
+        return None
+    return row
+
+
+def mark_auth_code_used(supabase: Client, code: str) -> None:
+    """Mark an authorization code as used (prevents replay)."""
+    supabase.table("oauth_auth_codes").update({"used": True}).eq("code", code).execute()
+
+
+def save_mcp_session(supabase: Client, row: dict) -> None:
+    """Insert a new MCP session containing access + refresh token hashes."""
+    supabase.table("mcp_sessions").insert(row).execute()
+
+
+def get_session_by_access_token_hash(supabase: Client, token_hash: str) -> dict | None:
+    """Return a session by access_token_hash if not expired, else None."""
+    rows = (
+        supabase.table("mcp_sessions")
+        .select("*")
+        .eq("access_token_hash", token_hash)
+        .execute()
+        .data
+        or []
+    )
+    if not rows:
+        return None
+    row = rows[0]
+    if datetime.now(timezone.utc) > _parse_dt(row["access_token_expires_at"]):
+        return None
+    return row
+
+
+def get_session_by_refresh_token_hash(supabase: Client, token_hash: str) -> dict | None:
+    """Return a session by refresh_token_hash if not expired, else None."""
+    rows = (
+        supabase.table("mcp_sessions")
+        .select("*")
+        .eq("refresh_token_hash", token_hash)
+        .execute()
+        .data
+        or []
+    )
+    if not rows:
+        return None
+    row = rows[0]
+    if datetime.now(timezone.utc) > _parse_dt(row["refresh_token_expires_at"]):
+        return None
+    return row
+
+
+def update_mcp_session_tokens(
+    supabase: Client,
+    session_id: str,
+    new_access_hash: str,
+    new_refresh_hash: str,
+    access_expires_at: str,
+    refresh_expires_at: str,
+) -> None:
+    """Rotate both token hashes in an existing session (called on refresh)."""
+    supabase.table("mcp_sessions").update({
+        "access_token_hash": new_access_hash,
+        "refresh_token_hash": new_refresh_hash,
+        "access_token_expires_at": access_expires_at,
+        "refresh_token_expires_at": refresh_expires_at,
+    }).eq("id", session_id).execute()
+
+
+def delete_session_by_access_hash(supabase: Client, token_hash: str) -> None:
+    """Delete the session row matching the given access token hash."""
+    supabase.table("mcp_sessions").delete().eq("access_token_hash", token_hash).execute()
+
+
+def delete_session_by_refresh_hash(supabase: Client, token_hash: str) -> None:
+    """Delete the session row matching the given refresh token hash."""
+    supabase.table("mcp_sessions").delete().eq("refresh_token_hash", token_hash).execute()
+
+
+def delete_session_by_id(supabase: Client, session_id: str) -> None:
+    """Delete a session by its primary key UUID."""
+    supabase.table("mcp_sessions").delete().eq("id", session_id).execute()
