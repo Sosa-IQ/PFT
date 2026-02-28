@@ -8,7 +8,21 @@ from supabase import Client
 import db
 
 
-def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
+def _uid() -> str:
+    """
+    Resolve the current user ID.
+    In SSE mode: reads from the OAuth access token in the request context.
+    In stdio mode: falls back to server._stdio_user_id set at startup.
+    """
+    from mcp.server.auth.middleware.auth_context import get_access_token
+    tok = get_access_token()
+    if tok and tok.resource:
+        return tok.resource
+    import server as _server  # noqa: PLC0415
+    return _server._stdio_user_id
+
+
+def register(mcp: FastMCP, supabase: Client) -> None:
     """Register transaction tools on the MCP server."""
 
     @mcp.tool()
@@ -30,7 +44,7 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         limit = min(max(1, limit), 200)
         rows = db.get_transactions(
             supabase,
-            user_id,
+            _uid(),
             category=category or None,
             start_date=start_date or None,
             end_date=end_date or None,
@@ -76,14 +90,11 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         if group_by not in ("category", "month"):
             return "group_by must be 'category' or 'month'."
 
+        uid = _uid()
         if group_by == "category":
-            totals = db.get_spending_by_category(
-                supabase, user_id, resolved_start, resolved_end
-            )
+            totals = db.get_spending_by_category(supabase, uid, resolved_start, resolved_end)
         else:
-            totals = db.get_spending_by_month(
-                supabase, user_id, resolved_start, resolved_end
-            )
+            totals = db.get_spending_by_month(supabase, uid, resolved_start, resolved_end)
 
         if not totals:
             return f"No spending data found between {resolved_start} and {resolved_end}."
@@ -125,7 +136,8 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         if not transaction_id or not new_category:
             return "Both transaction_id and new_category are required."
 
-        txn = db.get_transaction_by_id(supabase, user_id, transaction_id)
+        uid = _uid()
+        txn = db.get_transaction_by_id(supabase, uid, transaction_id)
         if not txn:
             return (
                 f"No transaction found with id '{transaction_id}'. "
@@ -149,7 +161,7 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         if not confirmed:
             return preview + "\nTo apply this change, call recategorize_transaction again with confirmed=True."
 
-        result = db.update_transaction_category(supabase, user_id, transaction_id, new_category)
+        result = db.update_transaction_category(supabase, uid, transaction_id, new_category)
         if not result:
             return "Transaction update failed — it may have been deleted."
 

@@ -10,7 +10,21 @@ import db
 DEBT_ACCOUNT_TYPES = {"credit", "loan"}
 
 
-def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
+def _uid() -> str:
+    """
+    Resolve the current user ID.
+    In SSE mode: reads from the OAuth access token in the request context.
+    In stdio mode: falls back to server._stdio_user_id set at startup.
+    """
+    from mcp.server.auth.middleware.auth_context import get_access_token
+    tok = get_access_token()
+    if tok and tok.resource:
+        return tok.resource
+    import server as _server  # noqa: PLC0415
+    return _server._stdio_user_id
+
+
+def register(mcp: FastMCP, supabase: Client) -> None:
     """Register net worth and accounts tools on the MCP server."""
 
     @mcp.tool()
@@ -20,8 +34,9 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         Each entry shows the account name, current balance, and whether
         it is an asset (money you own) or debt (money you owe).
         """
-        accounts = db.get_accounts(supabase, user_id)
-        liabilities = db.get_liabilities(supabase, user_id)
+        uid = _uid()
+        accounts = db.get_accounts(supabase, uid)
+        liabilities = db.get_liabilities(supabase, uid)
 
         if not accounts and not liabilities:
             return (
@@ -68,8 +83,9 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         Assets = depository/investment/etc accounts.
         Debt = Plaid credit/loan accounts + manually-tracked liabilities.
         """
-        accounts = db.get_accounts(supabase, user_id)
-        liabilities = db.get_liabilities(supabase, user_id)
+        uid = _uid()
+        accounts = db.get_accounts(supabase, uid)
+        liabilities = db.get_liabilities(supabase, uid)
 
         if not accounts and not liabilities:
             return (
@@ -102,7 +118,6 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         total_debt = 0.0
         lines.append("\n  Liabilities:")
 
-        # Plaid credit/loan accounts (balances represent money owed).
         if debt_accounts:
             lines.append("    From bank (Plaid):")
             for a in debt_accounts:
@@ -112,7 +127,6 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
                 name = a.get("account_name") or a.get("account_type") or "Account"
                 lines.append(f"      {institution} — {name:<23} ${balance:>10.2f}")
 
-        # Manually-tracked liabilities.
         if liabilities:
             lines.append("    Manual entries:")
             for l in liabilities:

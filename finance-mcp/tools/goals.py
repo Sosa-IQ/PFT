@@ -8,7 +8,21 @@ from supabase import Client
 import db
 
 
-def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
+def _uid() -> str:
+    """
+    Resolve the current user ID.
+    In SSE mode: reads from the OAuth access token in the request context.
+    In stdio mode: falls back to server._stdio_user_id set at startup.
+    """
+    from mcp.server.auth.middleware.auth_context import get_access_token
+    tok = get_access_token()
+    if tok and tok.resource:
+        return tok.resource
+    import server as _server  # noqa: PLC0415
+    return _server._stdio_user_id
+
+
+def register(mcp: FastMCP, supabase: Client) -> None:
     """Register savings goal tools on the MCP server."""
 
     @mcp.tool()
@@ -17,7 +31,7 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         List all savings goals with current progress, percentage complete,
         and projected completion date where a deadline is set.
         """
-        goals = db.get_savings_goals(supabase, user_id)
+        goals = db.get_savings_goals(supabase, _uid())
         if not goals:
             return (
                 "No savings goals yet. "
@@ -53,7 +67,6 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
                         f"Still need ${remaining:.2f}."
                     )
                 else:
-                    # How much needs to be saved per day to hit the deadline
                     daily_needed = remaining / days_left
                     lines.append(
                         f"    Deadline: {g['deadline']}  ({days_left} days left)  "
@@ -88,7 +101,6 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         if target_amount <= 0:
             return "target_amount must be greater than zero."
 
-        # Validate deadline format if provided.
         resolved_deadline: str | None = None
         if deadline:
             try:
@@ -97,8 +109,8 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
             except ValueError:
                 return f"Invalid deadline '{deadline}'. Use YYYY-MM-DD format."
 
-        # Prevent duplicate goal names.
-        existing = db.get_goal_by_name(supabase, user_id, name)
+        uid = _uid()
+        existing = db.get_goal_by_name(supabase, uid, name)
         if existing:
             return (
                 f"A savings goal named '{name}' already exists "
@@ -117,7 +129,7 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         if not confirmed:
             return preview + "\nTo create this goal, call add_savings_goal again with confirmed=True."
 
-        db.insert_savings_goal(supabase, user_id, name, target_amount, resolved_deadline)
+        db.insert_savings_goal(supabase, uid, name, target_amount, resolved_deadline)
         return preview + "\nSavings goal created."
 
     @mcp.tool()
@@ -140,7 +152,8 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         if current_amount < 0:
             return "current_amount cannot be negative."
 
-        goal = db.get_goal_by_name(supabase, user_id, name)
+        uid = _uid()
+        goal = db.get_goal_by_name(supabase, uid, name)
         if not goal:
             return (
                 f"No savings goal named '{name}' found. "
@@ -165,5 +178,5 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         if not confirmed:
             return preview + "\nTo apply this change, call update_goal_progress again with confirmed=True."
 
-        db.update_goal_current_amount(supabase, user_id, name, current_amount)
+        db.update_goal_current_amount(supabase, uid, name, current_amount)
         return preview + "\nGoal progress updated."

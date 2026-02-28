@@ -10,7 +10,21 @@ import db
 VALID_TYPES = {"credit_card", "loan", "mortgage", "student_loan", "medical", "other"}
 
 
-def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
+def _uid() -> str:
+    """
+    Resolve the current user ID.
+    In SSE mode: reads from the OAuth access token in the request context.
+    In stdio mode: falls back to server._stdio_user_id set at startup.
+    """
+    from mcp.server.auth.middleware.auth_context import get_access_token
+    tok = get_access_token()
+    if tok and tok.resource:
+        return tok.resource
+    import server as _server  # noqa: PLC0415
+    return _server._stdio_user_id
+
+
+def register(mcp: FastMCP, supabase: Client) -> None:
     """Register liability write tools on the MCP server."""
 
     @mcp.tool()
@@ -46,8 +60,8 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
                 f"Choose one of: {', '.join(sorted(VALID_TYPES))}."
             )
 
-        # Prevent duplicates by name.
-        existing = db.get_liability_by_name(supabase, user_id, name)
+        uid = _uid()
+        existing = db.get_liability_by_name(supabase, uid, name)
         if existing:
             return (
                 f"A liability named '{name}' already exists "
@@ -77,7 +91,7 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
 
         db.insert_liability(
             supabase,
-            user_id,
+            uid,
             name=name,
             balance=balance,
             apr=resolved_apr,
@@ -102,7 +116,8 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
             name:      Name of the liability to delete (must match exactly).
             confirmed: Set to True to confirm deletion. Default is False (preview only).
         """
-        existing = db.get_liability_by_name(supabase, user_id, name)
+        uid = _uid()
+        existing = db.get_liability_by_name(supabase, uid, name)
         if not existing:
             return (
                 f"No liability named '{name}' found. "
@@ -120,7 +135,7 @@ def register(mcp: FastMCP, supabase: Client, user_id: str) -> None:
         if not confirmed:
             return preview + "\nTo delete, call delete_liability again with confirmed=True."
 
-        deleted = db.delete_liability_by_name(supabase, user_id, name)
+        deleted = db.delete_liability_by_name(supabase, uid, name)
         if deleted == 0:
             return f"Liability '{name}' was not found — it may have already been deleted."
 
