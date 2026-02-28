@@ -60,6 +60,65 @@ function PlaidLinkButton({
   )
 }
 
+// ---------------------------------------------------------------------------
+// Connect Claude card — shows MCP server config for Claude Desktop
+// ---------------------------------------------------------------------------
+
+function ClaudeConnectCard() {
+  const mcpUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL ?? ''
+  const sseUrl = mcpUrl ? `${mcpUrl}/sse` : 'https://your-mcp-server.railway.app/sse'
+
+  const config = JSON.stringify(
+    { mcpServers: { finance: { url: sseUrl } } },
+    null,
+    2
+  )
+
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(config)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard API unavailable (e.g. non-HTTPS dev)
+    }
+  }
+
+  return (
+    <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+      <div>
+        <h2 className="font-semibold text-gray-800">Connect Claude</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Add the MCP server to Claude Desktop to ask Claude about your finances.
+        </p>
+      </div>
+
+      <ol className="text-sm text-gray-600 space-y-1.5 list-decimal list-inside">
+        <li>Open Claude Desktop → Settings → Developer → Edit Config</li>
+        <li>Paste the snippet below into <code className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">claude_desktop_config.json</code></li>
+        <li>Save the file and restart Claude Desktop</li>
+        <li>A browser window will open — sign in with your account once</li>
+      </ol>
+
+      <div className="relative">
+        <pre className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs font-mono text-gray-700 overflow-x-auto">
+          {config}
+        </pre>
+        <button
+          onClick={handleCopy}
+          className="absolute top-3 right-3 text-xs bg-white border border-gray-200 text-gray-600 hover:text-gray-900 rounded-lg px-2.5 py-1 transition-colors"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
 export default function SettingsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
@@ -223,6 +282,9 @@ export default function SettingsPage() {
           </ul>
         )}
       </section>
+
+      {/* Connect Claude */}
+      <ClaudeConnectCard />
 
       {/* Account */}
       <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-3">
