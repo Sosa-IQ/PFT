@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getLinkToken, exchangePlaidToken, syncTransactions, type SyncResult } from '@/lib/api'
 import { usePlaidLink } from 'react-plaid-link'
@@ -19,45 +19,41 @@ function PlaidLinkButton({
   token,
   authToken,
   onSuccess,
+  onExit,
 }: {
   token: string
   authToken: string
   onSuccess: () => void
+  onExit: (errorMessage: string | null) => void
 }) {
   const [connecting, setConnecting] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
+
+  const onPlaidSuccess = useCallback(async (public_token: string) => {
+    setConnecting(true)
+    try {
+      await exchangePlaidToken(authToken, public_token)
+      onSuccess()
+    } catch (e) {
+      onExit(e instanceof Error ? e.message : 'Connection failed')
+    } finally {
+      setConnecting(false)
+    }
+  }, [authToken, onSuccess, onExit])
 
   const { open, ready } = usePlaidLink({
     token,
-    onSuccess: async (public_token) => {
-      setConnecting(true)
-      setErr(null)
-      try {
-        await exchangePlaidToken(authToken, public_token)
-        onSuccess()
-      } catch (e) {
-        setErr(e instanceof Error ? e.message : 'Connection failed')
-      } finally {
-        setConnecting(false)
-      }
-    },
+    onSuccess: onPlaidSuccess,
     onExit: (err) => {
-      if (err) setErr(err.error_message ?? 'Plaid Link closed with an error.')
+      onExit(err?.error_message ?? null)
     },
   })
 
-  return (
-    <div className="space-y-2">
-      <button
-        onClick={() => open()}
-        disabled={!ready || connecting}
-        className="bg-blue-600 text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-      >
-        {connecting ? 'Connecting…' : 'Connect Bank Account'}
-      </button>
-      {err && <p className="text-sm text-red-500">{err}</p>}
-    </div>
-  )
+  // Auto-open the Plaid modal as soon as it's ready — avoids requiring a second click.
+  useEffect(() => {
+    if (ready) open()
+  }, [ready, open])
+
+  return connecting ? <p className="text-sm text-gray-500">Connecting…</p> : null
 }
 
 // ---------------------------------------------------------------------------
@@ -186,6 +182,11 @@ export default function SettingsPage() {
     loadAccounts()
   }
 
+  function handlePlaidExit(errorMessage: string | null) {
+    setLinkToken(null)
+    if (errorMessage) setError(errorMessage)
+  }
+
   if (loading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
 
   return (
@@ -220,6 +221,7 @@ export default function SettingsPage() {
             token={linkToken}
             authToken={authToken!}
             onSuccess={handlePlaidSuccess}
+            onExit={handlePlaidExit}
           />
         )}
       </section>
