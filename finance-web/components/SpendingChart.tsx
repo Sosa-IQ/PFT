@@ -1,6 +1,6 @@
 'use client'
 
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 // 8 distinct colors for spending categories.
 const COLORS = [
@@ -14,47 +14,75 @@ const COLORS = [
   '#ec4899', // pink
 ]
 
+function fmt(n: number) {
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 interface Props {
   data: { category: string; total: number }[]
+}
+
+function LegendColumn({ items }: { items: { category: string; total: number; color: string }[] }) {
+  return (
+    <div className="flex flex-col justify-center gap-2 min-w-0">
+      {items.map((item) => (
+        <div key={item.category} className="flex items-center gap-2 min-w-0">
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: item.color }}
+          />
+          <div className="min-w-0">
+            <p className="text-xs text-gray-600 truncate">{item.category}</p>
+            <p className="text-xs font-semibold text-gray-800">${fmt(item.total)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function SpendingChart({ data }: Props) {
   const total = data.reduce((sum, d) => sum + d.total, 0)
 
+  const itemsWithColor = data.map((d, i) => ({
+    ...d,
+    color: COLORS[i % COLORS.length],
+  }))
+
+  const mid = Math.ceil(itemsWithColor.length / 2)
+  const leftItems = itemsWithColor.slice(0, mid)
+  const rightItems = itemsWithColor.slice(mid)
+
   return (
     <div className="space-y-2">
-      <div className="w-full h-56">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="total"
-              nameKey="category"
-              cx="50%"
-              cy="50%"
-              innerRadius={55}
-              outerRadius={85}
-              paddingAngle={2}
-            >
-              {data.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]} />
-            <Legend
-              iconSize={10}
-              formatter={(value: string) => (
-                <span className="text-xs text-gray-600">{value}</span>
-              )}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+      <div className="flex items-center gap-4">
+        <LegendColumn items={leftItems} />
+        <div className="flex-1 h-56 min-w-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="total"
+                nameKey="category"
+                cx="50%"
+                cy="50%"
+                innerRadius={55}
+                outerRadius={85}
+                paddingAngle={2}
+              >
+                {data.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        {rightItems.length > 0 && <LegendColumn items={rightItems} />}
       </div>
       <p className="text-center text-sm text-gray-500">
         Total spent this month:{' '}
-        <span className="font-semibold text-gray-800">
-          ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </span>
+        <span className="font-semibold text-gray-800">${fmt(total)}</span>
       </p>
     </div>
   )
