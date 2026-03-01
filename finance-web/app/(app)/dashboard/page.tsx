@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { useAccounts, useLiabilities, useTransactions } from '@/hooks/queries'
 import type { Transaction } from '@/lib/api'
@@ -77,6 +78,8 @@ export default function DashboardPage() {
     end_date: end,
     limit: 500,
   })
+
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   const loading = loadingAccounts || loadingLiabs || loadingTxns
   const error = accountsError
@@ -184,7 +187,13 @@ export default function DashboardPage() {
       <section className="bg-white rounded-2xl border border-gray-200 p-6">
         <h2 className="text-base font-semibold mb-4">Spending This Month</h2>
         {spendingData.length > 0 ? (
-          <SpendingChart data={spendingData} />
+          <SpendingChart
+            data={spendingData}
+            selectedCategory={selectedCategory}
+            onCategoryClick={(cat) =>
+              setSelectedCategory((prev) => (prev === cat ? null : cat))
+            }
+          />
         ) : (
           <p className="text-sm text-gray-400 text-center py-8">
             No spending data yet.{' '}
@@ -199,12 +208,30 @@ export default function DashboardPage() {
       {/* Recent Transactions */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold">Recent Transactions</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">Recent Transactions</h2>
+            {selectedCategory && (
+              <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                {selectedCategory}
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  className="ml-0.5 hover:text-blue-900"
+                  aria-label="Clear filter"
+                >
+                  &times;
+                </button>
+              </span>
+            )}
+          </div>
           <Link href="/transactions" className="text-sm text-blue-500 hover:underline">
             View all
           </Link>
         </div>
-        <TransactionTable transactions={transactions.slice(0, 8)} />
+        <TransactionTable
+          transactions={selectedCategory
+            ? transactions.filter((t) => (t.category ?? 'Uncategorized') === selectedCategory)
+            : transactions.slice(0, 8)}
+        />
       </section>
     </div>
   )
