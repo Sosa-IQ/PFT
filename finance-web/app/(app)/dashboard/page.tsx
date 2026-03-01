@@ -35,12 +35,41 @@ function currentMonthRange() {
   }
 }
 
+// Plaid primary categories that are never real spending.
+const EXCLUDED_CATEGORIES = new Set(['TRANSFER_OUT', 'TRANSFER_IN'])
+
 // Groups transactions (debits only) by category and returns sorted totals.
-function groupByCategory(txns: Transaction[]) {
+// Detects internal transfers (e.g. checking → savings) by matching debit/credit
+// pairs across accounts, so they don't inflate the spending chart.
+function groupByCategory(txns: Transaction[], depositoryAccountNames: Set<string>) {
+  // Index credits by "date|amount" → set of receiving account names.
+  // Used to detect the other leg of an internal transfer.
+  const creditsBySignature = new Map<string, Set<string>>()
+  for (const t of txns) {
+    if (t.amount < 0 && t.account_name) {
+      const sig = `${t.date}|${Math.abs(t.amount).toFixed(2)}`
+      if (!creditsBySignature.has(sig)) creditsBySignature.set(sig, new Set())
+      creditsBySignature.get(sig)!.add(t.account_name)
+    }
+  }
+
   const map: Record<string, number> = {}
   for (const t of txns) {
     if (t.amount <= 0) continue // Skip credits / income
     const cat = t.category ?? 'Uncategorized'
+    if (EXCLUDED_CATEGORIES.has(cat)) continue
+
+    // Check if this debit has a matching credit landing in a depository account
+    // on the same date. If so it's an internal transfer (e.g. checking → savings),
+    // not real spending. Credit card payments are kept because the receiving
+    // account is type "credit", not depository.
+    const sig = `${t.date}|${t.amount.toFixed(2)}`
+    const creditAccounts = creditsBySignature.get(sig)
+    if (creditAccounts) {
+      const goesToDepository = Array.from(creditAccounts).some((name) => depositoryAccountNames.has(name))
+      if (goesToDepository) continue
+    }
+
     map[cat] = (map[cat] ?? 0) + t.amount
   }
   return Object.entries(map)
@@ -98,7 +127,11 @@ export default function DashboardPage() {
     debtAccounts.reduce((s, a) => s + (a.current_balance ?? 0), 0) +
     liabilities.reduce((s, l) => s + l.balance, 0)
   const netWorth = totalAssets - totalDebt
-  const spendingData = groupByCategory(transactions)
+
+  // Names of depository accounts (checking, savings, etc.) — used to detect
+  // internal transfers that shouldn't count as spending.
+  const depositoryAccountNames = new Set(assetAccounts.map((a) => a.account_name))
+  const spendingData = groupByCategory(transactions, depositoryAccountNames)
 
   if (loading) {
     return <p className="text-gray-400 text-sm py-16 text-center">Loading dashboard…</p>
