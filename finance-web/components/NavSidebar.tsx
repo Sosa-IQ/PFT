@@ -24,7 +24,7 @@ export default function NavSidebar({ session }: { session: Session | null }) {
   }
 
   return (
-    <nav className="w-56 min-h-screen bg-white border-r border-gray-200 flex flex-col px-4 py-6 shrink-0">
+    <nav className="w-56 h-screen bg-white border-r border-gray-200 flex flex-col px-4 py-6 shrink-0 sticky top-0">
       {/* Brand */}
       <div className="mb-8 px-1">
         <span className="text-lg font-bold text-blue-600">Finance</span>
