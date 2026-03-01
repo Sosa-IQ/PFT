@@ -161,8 +161,14 @@ export async function deleteLiability(token: string, id: string): Promise<void> 
 
 // ── Plaid ──────────────────────────────────────────────────────────────────
 
-export async function getLinkToken(token: string): Promise<{ link_token: string }> {
-  return apiFetch<{ link_token: string }>('/plaid/link-token', token, { method: 'POST' })
+export async function getLinkToken(
+  token: string,
+  redirectUri?: string,
+): Promise<{ link_token: string }> {
+  return apiFetch<{ link_token: string }>('/plaid/link-token', token, {
+    method: 'POST',
+    body: JSON.stringify({ redirect_uri: redirectUri ?? null }),
+  })
 }
 
 export async function exchangePlaidToken(

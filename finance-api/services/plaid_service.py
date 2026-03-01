@@ -48,18 +48,25 @@ def _build_client() -> plaid_api.PlaidApi:
 _plaid: plaid_api.PlaidApi = _build_client()
 
 
-def create_link_token(user_id: str) -> str:
+def create_link_token(user_id: str, redirect_uri: str | None = None) -> str:
     """
     Create a Plaid Link token for the given user.
     The frontend uses this token to open the Plaid Link UI.
+
+    In production, most banks use OAuth which requires a redirect_uri.
+    The URI must be registered in the Plaid Dashboard under Allowed redirect URIs.
     """
-    request = LinkTokenCreateRequest(
+    kwargs = dict(
         user=LinkTokenCreateRequestUser(client_user_id=user_id),
         client_name="Finance Tracker",
         products=[Products("transactions")],
         country_codes=[CountryCode("US")],
         language="en",
     )
+    if redirect_uri:
+        kwargs["redirect_uri"] = redirect_uri
+
+    request = LinkTokenCreateRequest(**kwargs)
     response = _plaid.link_token_create(request)
     return response["link_token"]
 

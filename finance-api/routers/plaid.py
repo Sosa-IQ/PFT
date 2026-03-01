@@ -22,6 +22,10 @@ router = APIRouter(prefix="/plaid", tags=["plaid"])
 # Request / Response models
 # ---------------------------------------------------------------------------
 
+class LinkTokenRequest(BaseModel):
+    redirect_uri: str | None = None
+
+
 class ExchangeTokenRequest(BaseModel):
     public_token: str
 
@@ -42,14 +46,18 @@ class SyncResponse(BaseModel):
 
 @router.post("/link-token", response_model=LinkTokenResponse)
 def create_link_token(
+    body: LinkTokenRequest | None = None,
     user: dict = Depends(get_current_user),
 ):
     """
     Step 1 of the Plaid Link flow.
     Returns a short-lived link_token the frontend uses to open Plaid's bank-connection UI.
+
+    For production OAuth banks, pass redirect_uri (must be registered in Plaid Dashboard).
     """
+    redirect_uri = body.redirect_uri if body else None
     try:
-        link_token = plaid_service.create_link_token(user["id"])
+        link_token = plaid_service.create_link_token(user["id"], redirect_uri=redirect_uri)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

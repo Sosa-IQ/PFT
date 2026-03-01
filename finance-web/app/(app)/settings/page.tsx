@@ -147,12 +147,18 @@ export default function SettingsPage() {
   }, [])
 
   // Fetch a Plaid link token when the user wants to connect a bank.
+  // Pass the OAuth redirect URI so production banks using OAuth work correctly.
   async function handleGetLinkToken() {
     if (!authToken) return
     setFetchingLink(true)
     setError(null)
     try {
-      const { link_token } = await getLinkToken(authToken)
+      // Only pass redirect_uri on HTTPS — Plaid requires it and localhost is HTTP.
+      const isHttps = window.location.protocol === 'https:'
+      const redirectUri = isHttps ? `${window.location.origin}/oauth-callback` : undefined
+      const { link_token } = await getLinkToken(authToken, redirectUri)
+      // Store the link token so the OAuth callback page can retrieve it after redirect.
+      sessionStorage.setItem('plaid_link_token', link_token)
       setLinkToken(link_token)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get link token')
