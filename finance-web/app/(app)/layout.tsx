@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { AuthTokenContext } from '@/hooks/useAuthToken'
 import NavSidebar from '@/components/NavSidebar'
 
 // Protected layout — redirects to /login if the user is not authenticated.
@@ -45,9 +46,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <NavSidebar session={session} />
-      <main className="flex-1 p-6 overflow-y-auto min-h-screen">{children}</main>
-    </div>
+    <AuthTokenContext.Provider value={session?.access_token ?? null}>
+      <div className="flex min-h-screen">
+        <NavSidebar session={session} />
+        <main className="flex-1 p-6 overflow-y-auto min-h-screen">{children}</main>
+      </div>
+    </AuthTokenContext.Provider>
   )
 }

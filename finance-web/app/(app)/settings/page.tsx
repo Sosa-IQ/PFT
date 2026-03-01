@@ -2,47 +2,24 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getLinkToken, exchangePlaidToken, syncTransactions, type SyncResult } from '@/lib/api'
+import { getLinkToken } from '@/lib/api'
 import { usePlaidLink } from 'react-plaid-link'
-
-interface Account {
-  id: string
-  account_name: string
-  account_type: string
-  institution_name: string | null
-  current_balance: number
-  last_synced_at: string | null
-}
+import { useAuthToken } from '@/hooks/useAuthToken'
+import { useAccounts, useSyncTransactions, useExchangePlaidToken } from '@/hooks/queries'
 
 // Inner component that has access to the Plaid link token and uses the hook.
 function PlaidLinkButton({
   token,
-  authToken,
   onSuccess,
   onExit,
 }: {
   token: string
-  authToken: string
-  onSuccess: () => void
+  onSuccess: (publicToken: string) => void
   onExit: (errorMessage: string | null) => void
 }) {
-  const [connecting, setConnecting] = useState(false)
-
-  const onPlaidSuccess = useCallback(async (public_token: string) => {
-    setConnecting(true)
-    try {
-      await exchangePlaidToken(authToken, public_token)
-      onSuccess()
-    } catch (e) {
-      onExit(e instanceof Error ? e.message : 'Connection failed')
-    } finally {
-      setConnecting(false)
-    }
-  }, [authToken, onSuccess, onExit])
-
   const { open, ready } = usePlaidLink({
     token,
-    onSuccess: onPlaidSuccess,
+    onSuccess: (public_token: string) => onSuccess(public_token),
     onExit: (err) => {
       onExit(err?.error_message ?? null)
     },
@@ -53,7 +30,7 @@ function PlaidLinkButton({
     if (ready) open()
   }, [ready, open])
 
-  return connecting ? <p className="text-sm text-gray-500">Connecting…</p> : null
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -116,40 +93,20 @@ function ClaudeConnectCard() {
 // ---------------------------------------------------------------------------
 
 export default function SettingsPage() {
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [loading, setLoading] = useState(true)
+  const authToken = useAuthToken()
+  const { data: accounts = [], isLoading } = useAccounts()
+  const syncMutation = useSyncTransactions()
+  const exchangeMutation = useExchangePlaidToken()
+
   const [error, setError] = useState<string | null>(null)
-  const [authToken, setAuthToken] = useState<string | null>(null)
 
   // Plaid link token (fetched from backend when user clicks "Connect").
   const [linkToken, setLinkToken] = useState<string | null>(null)
   const [fetchingLink, setFetchingLink] = useState(false)
 
-  // Sync state
-  const [syncing, setSyncing] = useState(false)
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null)
-
-  async function loadAccounts() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    setAuthToken(session.access_token)
-    const { data } = await supabase
-      .from('accounts')
-      .select('id, account_name, account_type, institution_name, current_balance, last_synced_at')
-      .order('institution_name')
-    setAccounts(data ?? [])
-  }
-
-  useEffect(() => {
-    loadAccounts()
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load accounts'))
-      .finally(() => setLoading(false))
-  }, [])
-
   // Fetch a Plaid link token when the user wants to connect a bank.
   // Pass the OAuth redirect URI so production banks using OAuth work correctly.
   async function handleGetLinkToken() {
-    if (!authToken) return
     setFetchingLink(true)
     setError(null)
     try {
@@ -168,32 +125,29 @@ export default function SettingsPage() {
   }
 
   async function handleSync() {
-    if (!authToken) return
-    setSyncing(true)
-    setSyncResult(null)
     setError(null)
     try {
-      const result = await syncTransactions(authToken)
-      setSyncResult(result)
-      await loadAccounts() // Refresh balances after sync
+      await syncMutation.mutateAsync()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sync failed')
-    } finally {
-      setSyncing(false)
     }
   }
 
-  function handlePlaidSuccess() {
+  const handlePlaidSuccess = useCallback(async (publicToken: string) => {
+    try {
+      await exchangeMutation.mutateAsync(publicToken)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Connection failed')
+    }
     setLinkToken(null)
-    loadAccounts()
-  }
+  }, [exchangeMutation])
 
-  function handlePlaidExit(errorMessage: string | null) {
+  const handlePlaidExit = useCallback((errorMessage: string | null) => {
     setLinkToken(null)
     if (errorMessage) setError(errorMessage)
-  }
+  }, [])
 
-  if (loading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
+  if (isLoading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
@@ -225,7 +179,6 @@ export default function SettingsPage() {
         ) : (
           <PlaidLinkButton
             token={linkToken}
-            authToken={authToken!}
             onSuccess={handlePlaidSuccess}
             onExit={handlePlaidExit}
           />
@@ -239,18 +192,18 @@ export default function SettingsPage() {
           {accounts.length > 0 && (
             <button
               onClick={handleSync}
-              disabled={syncing}
+              disabled={syncMutation.isPending}
               className="text-sm text-blue-600 hover:underline disabled:opacity-50"
             >
-              {syncing ? 'Syncing…' : 'Sync now'}
+              {syncMutation.isPending ? 'Syncing…' : 'Sync now'}
             </button>
           )}
         </div>
 
-        {syncResult && (
+        {syncMutation.data && (
           <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-2">
-            Sync complete — {syncResult.added} added, {syncResult.modified} updated,{' '}
-            {syncResult.removed} removed.
+            Sync complete — {syncMutation.data.added} added, {syncMutation.data.modified} updated,{' '}
+            {syncMutation.data.removed} removed.
           </div>
         )}
 

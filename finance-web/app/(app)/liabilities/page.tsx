@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState } from 'react'
 import {
-  getLiabilities,
-  createLiability,
-  updateLiability,
-  deleteLiability,
-  type Liability,
-} from '@/lib/api'
+  useDebtAccounts,
+  useLiabilities,
+  useCreateLiability,
+  useUpdateLiability,
+  useDeleteLiability,
+  type Account,
+} from '@/hooks/queries'
+import type { Liability } from '@/lib/api'
 
 // Estimate months to pay off a balance at APR with a given minimum payment.
 function monthsToPayOff(balance: number, apr: number | null, minPayment: number | null): number | null {
@@ -28,20 +29,13 @@ function fmtPayoff(months: number | null): string {
 
 const LIABILITY_TYPES = ['credit_card', 'student_loan', 'mortgage', 'auto_loan', 'personal_loan', 'other']
 
-// A Plaid-synced debt account (from the accounts table).
-interface PlaidDebtAccount {
-  id: string
-  account_name: string
-  account_type: string   // 'credit' | 'loan'
-  current_balance: number
-  institution_name: string | null
-}
-
 export default function LiabilitiesPage() {
-  const [plaidDebts, setPlaidDebts] = useState<PlaidDebtAccount[]>([])
-  const [liabilities, setLiabilities] = useState<Liability[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: plaidDebts = [], isLoading: loadingDebts } = useDebtAccounts()
+  const { data: liabilities = [], isLoading: loadingLiabs, error: liabError } = useLiabilities()
+
+  const createLiabilityMut = useCreateLiability()
+  const updateLiabilityMut = useUpdateLiability()
+  const deleteLiabilityMut = useDeleteLiability()
 
   // Form state
   const [showForm, setShowForm] = useState(false)
@@ -52,31 +46,7 @@ export default function LiabilitiesPage() {
   const [formType, setFormType] = useState('')
   const [formMinPayment, setFormMinPayment] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-
-  async function loadAll() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-
-    const [{ data: acctData }, libData] = await Promise.all([
-      // Fetch Plaid credit + loan accounts directly from Supabase.
-      supabase
-        .from('accounts')
-        .select('id, account_name, account_type, current_balance, institution_name')
-        .in('account_type', ['credit', 'loan'])
-        .order('current_balance', { ascending: false }),
-      getLiabilities(session.access_token),
-    ])
-
-    setPlaidDebts(acctData ?? [])
-    setLiabilities(libData)
-  }
-
-  useEffect(() => {
-    loadAll()
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load liabilities'))
-      .finally(() => setLoading(false))
-  }, [])
+  const [error, setError] = useState<string | null>(null)
 
   function openAdd() {
     setEditingId(null)
@@ -108,9 +78,6 @@ export default function LiabilitiesPage() {
       setFormError('Balance must be 0 or more.')
       return
     }
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    setSaving(true)
     const payload = {
       name: formName.trim(),
       balance,
@@ -120,34 +87,30 @@ export default function LiabilitiesPage() {
     }
     try {
       if (editingId) {
-        await updateLiability(session.access_token, editingId, payload)
+        await updateLiabilityMut.mutateAsync({ id: editingId, ...payload })
       } else {
-        await createLiability(session.access_token, payload)
+        await createLiabilityMut.mutateAsync(payload)
       }
       setShowForm(false)
-      await loadAll()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Save failed')
-    } finally {
-      setSaving(false)
     }
   }
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete "${name}"?`)) return
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
     try {
-      await deleteLiability(session.access_token, id)
-      await loadAll()
+      await deleteLiabilityMut.mutateAsync(id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
     }
   }
 
+  const saving = createLiabilityMut.isPending || updateLiabilityMut.isPending
   const plaidTotal = plaidDebts.reduce((s, a) => s + (a.current_balance ?? 0), 0)
   const manualTotal = liabilities.reduce((s, l) => s + l.balance, 0)
   const totalDebt = plaidTotal + manualTotal
+  const loading = loadingDebts || loadingLiabs
 
   if (loading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
 
@@ -173,9 +136,9 @@ export default function LiabilitiesPage() {
         </button>
       </div>
 
-      {error && (
+      {(liabError || error) && (
         <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-          {error}
+          {liabError instanceof Error ? liabError.message : error}
         </div>
       )}
 

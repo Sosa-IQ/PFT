@@ -1,54 +1,41 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { getTransactions, type Transaction } from '@/lib/api'
+import { useState } from 'react'
+import { useTransactions } from '@/hooks/queries'
 import TransactionTable from '@/components/TransactionTable'
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
   // Filter state
   const [category, setCategory] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [limit, setLimit] = useState(100)
 
-  async function fetchTransactions() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await getTransactions(session.access_token, {
-        category: category || undefined,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
-        limit,
-      })
-      setTransactions(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load transactions')
-    } finally {
-      setLoading(false)
-    }
-  }
+  // "Applied" filters — only sent to the query when the user clicks Apply.
+  const [appliedFilters, setAppliedFilters] = useState<{
+    category?: string
+    start_date?: string
+    end_date?: string
+    limit: number
+  }>({ limit: 100 })
 
-  // Initial load with no filters.
-  useEffect(() => {
-    fetchTransactions()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const { data: transactions = [], isLoading, error } = useTransactions(appliedFilters)
+
+  function handleApply() {
+    setAppliedFilters({
+      category: category || undefined,
+      start_date: startDate || undefined,
+      end_date: endDate || undefined,
+      limit,
+    })
+  }
 
   function handleReset() {
     setCategory('')
     setStartDate('')
     setEndDate('')
     setLimit(100)
-    // Re-fetch after state update on next render.
-    setTimeout(fetchTransactions, 0)
+    setAppliedFilters({ limit: 100 })
   }
 
   return (
@@ -102,7 +89,7 @@ export default function TransactionsPage() {
         </div>
         <div className="flex gap-3 mt-3">
           <button
-            onClick={fetchTransactions}
+            onClick={handleApply}
             className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             Apply filters
@@ -118,13 +105,13 @@ export default function TransactionsPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-          {error}
+          {error instanceof Error ? error.message : 'Failed to load transactions'}
         </div>
       )}
 
       {/* Results */}
       <div>
-        {loading ? (
+        {isLoading ? (
           <p className="text-gray-400 text-sm py-10 text-center">Loading…</p>
         ) : (
           <>

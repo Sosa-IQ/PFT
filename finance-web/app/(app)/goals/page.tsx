@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { getGoals, createGoal, updateGoal, deleteGoal, type Goal } from '@/lib/api'
+import { useState } from 'react'
+import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from '@/hooks/queries'
+import type { Goal } from '@/lib/api'
 import GoalCard from '@/components/GoalCard'
 
 export default function GoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: goals = [], isLoading, error } = useGoals()
+  const createGoal = useCreateGoal()
+  const updateGoalMut = useUpdateGoal()
+  const deleteGoalMut = useDeleteGoal()
 
   // Form state — shared for create and edit.
   const [showForm, setShowForm] = useState(false)
@@ -18,20 +19,6 @@ export default function GoalsPage() {
   const [formCurrent, setFormCurrent] = useState('')
   const [formDeadline, setFormDeadline] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-
-  async function loadGoals() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const data = await getGoals(session.access_token)
-    setGoals(data)
-  }
-
-  useEffect(() => {
-    loadGoals()
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load goals'))
-      .finally(() => setLoading(false))
-  }, [])
 
   function openAdd() {
     setEditingId(null)
@@ -66,19 +53,17 @@ export default function GoalsPage() {
       setFormError('Current amount must be 0 or more.')
       return
     }
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    setSaving(true)
     try {
       if (editingId) {
-        await updateGoal(session.access_token, editingId, {
+        await updateGoalMut.mutateAsync({
+          id: editingId,
           name: formName.trim(),
           target_amount: target,
           current_amount: current,
           deadline: formDeadline || undefined,
         })
       } else {
-        await createGoal(session.access_token, {
+        await createGoal.mutateAsync({
           name: formName.trim(),
           target_amount: target,
           current_amount: current,
@@ -86,27 +71,23 @@ export default function GoalsPage() {
         })
       }
       setShowForm(false)
-      await loadGoals()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Save failed')
-    } finally {
-      setSaving(false)
     }
   }
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete goal "${name}"?`)) return
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
     try {
-      await deleteGoal(session.access_token, id)
-      await loadGoals()
+      await deleteGoalMut.mutateAsync(id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed')
+      setFormError(err instanceof Error ? err.message : 'Delete failed')
     }
   }
 
-  if (loading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
+  const saving = createGoal.isPending || updateGoalMut.isPending
+
+  if (isLoading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -122,7 +103,7 @@ export default function GoalsPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-          {error}
+          {error instanceof Error ? error.message : 'Failed to load goals'}
         </div>
       )}
 

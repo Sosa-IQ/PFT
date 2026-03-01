@@ -1,24 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import {
-  getTransactions,
-  getLiabilities,
-  type Transaction,
-  type Liability,
-} from '@/lib/api'
+import { useAccounts, useLiabilities, useTransactions } from '@/hooks/queries'
+import type { Transaction } from '@/lib/api'
 import SpendingChart from '@/components/SpendingChart'
 import TransactionTable from '@/components/TransactionTable'
-
-interface Account {
-  id: string
-  account_name: string
-  account_type: string
-  current_balance: number
-  institution_name: string | null
-}
 
 // Plaid account types that represent money owed, not money held.
 // Their current_balance is the outstanding debt amount.
@@ -81,39 +67,19 @@ function fmt(n: number) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const { start, end } = currentMonthRange()
+
 export default function DashboardPage() {
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [liabilities, setLiabilities] = useState<Liability[]>([])
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: accounts = [], isLoading: loadingAccounts, error: accountsError } = useAccounts()
+  const { data: liabilities = [], isLoading: loadingLiabs } = useLiabilities()
+  const { data: transactions = [], isLoading: loadingTxns } = useTransactions({
+    start_date: start,
+    end_date: end,
+    limit: 500,
+  })
 
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return
-      const token = session.access_token
-      const { start, end } = currentMonthRange()
-
-      try {
-        const [acctRes, libData, txnData] = await Promise.all([
-          // Query accounts directly via Supabase (no accounts REST endpoint in API).
-          supabase
-            .from('accounts')
-            .select('id, account_name, account_type, current_balance, institution_name')
-            .order('current_balance', { ascending: false }),
-          getLiabilities(token),
-          getTransactions(token, { start_date: start, end_date: end, limit: 500 }),
-        ])
-        setAccounts(acctRes.data ?? [])
-        setLiabilities(libData)
-        setTransactions(txnData)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data')
-      } finally {
-        setLoading(false)
-      }
-    })
-  }, [])
+  const loading = loadingAccounts || loadingLiabs || loadingTxns
+  const error = accountsError
 
   // Split Plaid accounts into asset accounts (depository, investment, etc.)
   // vs debt accounts (credit cards, loans). Debt accounts' current_balance
@@ -143,7 +109,7 @@ export default function DashboardPage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-          {error}
+          {error instanceof Error ? error.message : 'Failed to load data'}
         </div>
       )}
 

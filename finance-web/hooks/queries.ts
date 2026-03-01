@@ -1,0 +1,235 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import {
+  getTransactions,
+  getBudgets,
+  createBudget,
+  updateBudget,
+  deleteBudget,
+  getGoals,
+  createGoal,
+  updateGoal,
+  deleteGoal,
+  getLiabilities,
+  createLiability,
+  updateLiability,
+  deleteLiability,
+  syncTransactions,
+  exchangePlaidToken,
+  type Transaction,
+  type Budget,
+  type Goal,
+  type Liability,
+} from '@/lib/api'
+import { useAuthToken } from './useAuthToken'
+
+// ── Query Keys ────────────────────────────────────────────────────────────
+
+export const queryKeys = {
+  accounts: ['accounts'] as const,
+  debtAccounts: ['accounts', 'debt'] as const,
+  transactions: (filters?: Record<string, unknown>) => ['transactions', filters ?? {}] as const,
+  budgets: ['budgets'] as const,
+  goals: ['goals'] as const,
+  liabilities: ['liabilities'] as const,
+}
+
+// ── Account types (shared across pages) ───────────────────────────────────
+
+export interface Account {
+  id: string
+  account_name: string
+  account_type: string
+  current_balance: number
+  institution_name: string | null
+  last_synced_at?: string | null
+}
+
+// ── Accounts (queried directly via Supabase) ──────────────────────────────
+
+export function useAccounts() {
+  return useQuery<Account[]>({
+    queryKey: queryKeys.accounts,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('accounts')
+        .select('id, account_name, account_type, current_balance, institution_name, last_synced_at')
+        .order('current_balance', { ascending: false })
+      return data ?? []
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes — Plaid data only changes on sync
+  })
+}
+
+export function useDebtAccounts() {
+  return useQuery<Account[]>({
+    queryKey: queryKeys.debtAccounts,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('accounts')
+        .select('id, account_name, account_type, current_balance, institution_name')
+        .in('account_type', ['credit', 'loan'])
+        .order('current_balance', { ascending: false })
+      return data ?? []
+    },
+    staleTime: 10 * 60 * 1000,
+  })
+}
+
+// ── Transactions ──────────────────────────────────────────────────────────
+
+export function useTransactions(filters: {
+  category?: string
+  start_date?: string
+  end_date?: string
+  limit?: number
+} = {}) {
+  const token = useAuthToken()
+  return useQuery<Transaction[]>({
+    queryKey: queryKeys.transactions(filters),
+    queryFn: () => getTransactions(token, filters),
+  })
+}
+
+// ── Budgets ───────────────────────────────────────────────────────────────
+
+export function useBudgets() {
+  const token = useAuthToken()
+  return useQuery<Budget[]>({
+    queryKey: queryKeys.budgets,
+    queryFn: () => getBudgets(token),
+  })
+}
+
+export function useCreateBudget() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { category: string; monthly_limit: number }) =>
+      createBudget(token, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.budgets }) },
+  })
+}
+
+export function useUpdateBudget() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ category, monthly_limit }: { category: string; monthly_limit: number }) =>
+      updateBudget(token, category, monthly_limit),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.budgets }) },
+  })
+}
+
+export function useDeleteBudget() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (category: string) => deleteBudget(token, category),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.budgets }) },
+  })
+}
+
+// ── Goals ─────────────────────────────────────────────────────────────────
+
+export function useGoals() {
+  const token = useAuthToken()
+  return useQuery<Goal[]>({
+    queryKey: queryKeys.goals,
+    queryFn: () => getGoals(token),
+  })
+}
+
+export function useCreateGoal() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { name: string; target_amount: number; current_amount?: number; deadline?: string }) =>
+      createGoal(token, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.goals }) },
+  })
+}
+
+export function useUpdateGoal() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; target_amount?: number; current_amount?: number; deadline?: string }) =>
+      updateGoal(token, id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.goals }) },
+  })
+}
+
+export function useDeleteGoal() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteGoal(token, id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.goals }) },
+  })
+}
+
+// ── Liabilities ───────────────────────────────────────────────────────────
+
+export function useLiabilities() {
+  const token = useAuthToken()
+  return useQuery<Liability[]>({
+    queryKey: queryKeys.liabilities,
+    queryFn: () => getLiabilities(token),
+  })
+}
+
+export function useCreateLiability() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { name: string; balance: number; apr?: number; type?: string; minimum_payment?: number }) =>
+      createLiability(token, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.liabilities }) },
+  })
+}
+
+export function useUpdateLiability() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; balance?: number; apr?: number; type?: string; minimum_payment?: number }) =>
+      updateLiability(token, id, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.liabilities }) },
+  })
+}
+
+export function useDeleteLiability() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteLiability(token, id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.liabilities }) },
+  })
+}
+
+// ── Plaid Sync ────────────────────────────────────────────────────────────
+
+export function useSyncTransactions() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => syncTransactions(token),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+}
+
+export function useExchangePlaidToken() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (publicToken: string) => exchangePlaidToken(token, publicToken),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+}
