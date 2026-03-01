@@ -55,7 +55,7 @@ app.include_router(goals.router)
 app.include_router(liabilities.router)
 
 # ---------------------------------------------------------------------------
-# Health check (unauthenticated — used by Railway/Render to confirm the app is up)
+# Health check (unauthenticated — used by load balancers/monitoring to confirm the app is up)
 # ---------------------------------------------------------------------------
 
 @app.get("/health", tags=["meta"])
