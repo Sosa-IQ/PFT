@@ -4,7 +4,7 @@ server.py — MCP server entry point for the Personal Finance Tracker.
 Transport modes (set MCP_TRANSPORT in .env):
   stdio (default): runs locally via Claude Desktop, user JWT read from .env.
   sse:             runs as an HTTP server with OAuth 2.0 — for remote access
-                   from Claude Desktop / Claude mobile after Railway deploy.
+                   from Claude Desktop / Claude mobile after EC2 deploy.
 
 ── stdio (local dev) ──────────────────────────────────────────────────────
 Claude Desktop config (~/.config/claude/claude_desktop_config.json on Linux,
@@ -19,16 +19,16 @@ Claude Desktop config (~/.config/claude/claude_desktop_config.json on Linux,
       }
     }
 
-── SSE (remote / Railway) ─────────────────────────────────────────────────
+── SSE (remote / EC2) ─────────────────────────────────────────────────────
 Claude Desktop config:
 
     {
       "mcpServers": {
-        "finance": { "url": "https://your-mcp-server.railway.app/sse" }
+        "finance": { "url": "https://mcp.yourdomain.com/sse" }
       }
     }
 
-Claude will open a browser to https://your-mcp-server.railway.app/oauth/login
+Claude will open a browser to https://mcp.yourdomain.com/oauth/login
 the first time, and refresh tokens silently thereafter.
 """
 
