@@ -90,6 +90,7 @@ class FinanceOAuthProvider:
             grant_types=row.get("grant_types") or ["authorization_code", "refresh_token"],
             client_name=row.get("client_name"),
             scope=row.get("scope"),
+            token_endpoint_auth_method=row.get("token_endpoint_auth_method") or "none",
         )
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
@@ -101,6 +102,7 @@ class FinanceOAuthProvider:
             "grant_types": client_info.grant_types or ["authorization_code", "refresh_token"],
             "client_name": client_info.client_name,
             "scope": client_info.scope,
+            "token_endpoint_auth_method": client_info.token_endpoint_auth_method,
         })
 
     # ------------------------------------------------------------------
