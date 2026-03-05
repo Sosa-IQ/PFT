@@ -39,7 +39,7 @@ function PlaidLinkButton({
 
 function ClaudeConnectCard() {
   const mcpUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL ?? ''
-  const sseUrl = mcpUrl ? `${mcpUrl}/sse` : 'https://mcp.yourdomain.com/sse'
+  const sseUrl = mcpUrl ? `${mcpUrl}/sse` : 'https://mcp.budgitbuddy.com/sse'
 
   const config = JSON.stringify(
     { mcpServers: { finance: { url: sseUrl } } },
