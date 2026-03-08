@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -22,6 +24,24 @@ export default function LoginPage() {
       setError(error.message)
     } else {
       router.replace('/dashboard')
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      setError('Enter your email address above, then click "Forgot password?".')
+      return
+    }
+    setError(null)
+    setResetLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setResetLoading(false)
+    if (error) {
+      setError(error.message)
+    } else {
+      setResetSent(true)
     }
   }
 
@@ -44,7 +64,17 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={resetLoading}
+              className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+            >
+              {resetLoading ? 'Sending…' : 'Forgot password?'}
+            </button>
+          </div>
           <input
             type="password"
             value={password}
@@ -56,6 +86,11 @@ export default function LoginPage() {
         </div>
 
         {error && <p className="text-sm text-red-500">{error}</p>}
+        {resetSent && (
+          <p className="text-sm text-green-600">
+            Password reset email sent. Check your inbox.
+          </p>
+        )}
 
         <button
           type="submit"
