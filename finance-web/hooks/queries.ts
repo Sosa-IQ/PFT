@@ -6,6 +6,11 @@ import {
   createBudget,
   updateBudget,
   deleteBudget,
+  getBudgetLines,
+  createBudgetLine,
+  updateBudgetLine,
+  deleteBudgetLine,
+  getTransactionCategories,
   getGoals,
   createGoal,
   updateGoal,
@@ -18,6 +23,7 @@ import {
   exchangePlaidToken,
   type Transaction,
   type Budget,
+  type BudgetLine,
   type Goal,
   type Liability,
 } from '@/lib/api'
@@ -105,8 +111,12 @@ export function useCreateBudget() {
   const token = useAuthToken()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { category: string; monthly_limit: number }) =>
-      createBudget(token, data),
+    mutationFn: (data: {
+      name: string
+      date_range_type: 'custom' | 'weekly' | 'biweekly' | 'monthly'
+      start_date?: string
+      end_date?: string
+    }) => createBudget(token, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.budgets }) },
   })
 }
@@ -115,8 +125,8 @@ export function useUpdateBudget() {
   const token = useAuthToken()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ category, monthly_limit }: { category: string; monthly_limit: number }) =>
-      updateBudget(token, category, monthly_limit),
+    mutationFn: ({ id, ...data }: { id: string; name?: string; date_range_type?: string; start_date?: string; end_date?: string }) =>
+      updateBudget(token, id, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.budgets }) },
   })
 }
@@ -125,8 +135,83 @@ export function useDeleteBudget() {
   const token = useAuthToken()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (category: string) => deleteBudget(token, category),
+    mutationFn: (id: string) => deleteBudget(token, id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: queryKeys.budgets }) },
+  })
+}
+
+// ── Budget Lines ──────────────────────────────────────────────────────────
+
+export function useBudgetLines(budgetId: string) {
+  const token = useAuthToken()
+  return useQuery<BudgetLine[]>({
+    queryKey: [...queryKeys.budgets, budgetId, 'lines'],
+    queryFn: () => getBudgetLines(token, budgetId),
+    enabled: !!budgetId,
+  })
+}
+
+export function useCreateBudgetLine(budgetId: string) {
+  const token = useAuthToken()
+  return useMutation({
+    mutationFn: (data: {
+      line_type: 'income' | 'expense'
+      name: string
+      categories?: string[]
+      planned_amount: number
+    }) => createBudgetLine(token, budgetId, data),
+  })
+}
+
+export function useUpdateBudgetLine(budgetId: string) {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  const linesKey = [...queryKeys.budgets, budgetId, 'lines']
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; categories?: string[]; planned_amount?: number }) =>
+      updateBudgetLine(token, budgetId, id, data),
+    onMutate: async (updated) => {
+      await qc.cancelQueries({ queryKey: linesKey })
+      const prev = qc.getQueryData<BudgetLine[]>(linesKey)
+      qc.setQueryData<BudgetLine[]>(linesKey, (old) =>
+        (old ?? []).map((l) => l.id === updated.id ? { ...l, ...updated } : l)
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(linesKey, ctx.prev)
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: linesKey }) },
+  })
+}
+
+export function useDeleteBudgetLine(budgetId: string) {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  const linesKey = [...queryKeys.budgets, budgetId, 'lines']
+  return useMutation({
+    mutationFn: (lineId: string) => deleteBudgetLine(token, budgetId, lineId),
+    onMutate: async (lineId) => {
+      await qc.cancelQueries({ queryKey: linesKey })
+      const prev = qc.getQueryData<BudgetLine[]>(linesKey)
+      qc.setQueryData<BudgetLine[]>(linesKey, (old) =>
+        (old ?? []).filter((l) => l.id !== lineId)
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(linesKey, ctx.prev)
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: linesKey }) },
+  })
+}
+
+export function useTransactionCategories() {
+  const token = useAuthToken()
+  return useQuery<string[]>({
+    queryKey: ['transaction-categories'],
+    queryFn: () => getTransactionCategories(token),
+    staleTime: 5 * 60 * 1000,
   })
 }
 
