@@ -42,6 +42,7 @@ export interface Budget {
   start_date: string | null
   end_date: string | null
   created_at: string
+  balance?: number
 }
 
 export interface BudgetLine {
@@ -51,6 +52,7 @@ export interface BudgetLine {
   name: string
   categories: string[]
   planned_amount: number
+  sort_order: number | null
   computed_actual: number | null   // auto-calculated from transactions
 }
 
@@ -165,6 +167,17 @@ export async function deleteBudgetLine(
   lineId: string,
 ): Promise<void> {
   return apiFetch<void>(`/budgets/${budgetId}/lines/${lineId}`, token, { method: 'DELETE' })
+}
+
+export async function reorderBudgetLines(
+  token: string,
+  budgetId: string,
+  items: { id: string; sort_order: number }[],
+): Promise<void> {
+  return apiFetch<void>(`/budgets/${budgetId}/lines/reorder`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(items),
+  })
 }
 
 // ── Transaction Categories ─────────────────────────────────────────────────

@@ -16,6 +16,7 @@ Endpoints:
     DELETE /budgets/{id}                    → Delete a budget
     GET    /budgets/{id}/lines              → List lines with computed actuals
     POST   /budgets/{id}/lines              → Add a line
+    PATCH  /budgets/{id}/lines/reorder     → Bulk-update sort_order
     PUT    /budgets/{id}/lines/{line_id}    → Update a line
     DELETE /budgets/{id}/lines/{line_id}    → Delete a line
 """
@@ -53,6 +54,46 @@ def _current_period(date_range_type: str, start_date, end_date) -> tuple[str, st
         else:
             month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
         return str(month_start), str(month_end)
+
+
+# Categories Plaid uses for account-to-account transfers — never real spending.
+# Mirrors the EXCLUDED_CATEGORIES constant in the dashboard frontend.
+EXCLUDED_CATEGORIES = {"TRANSFER_OUT", "TRANSFER_IN"}
+
+
+def _filter_internal_transfers(
+    transactions: list[dict],
+    depository_account_ids: set[str],
+) -> list[dict]:
+    """
+    Remove internal transfers from a transaction list, mirroring the dashboard's
+    groupByCategory logic.
+
+    Two filters are applied:
+    1. Drop any transaction whose category is TRANSFER_OUT or TRANSFER_IN.
+    2. Drop debits that have a matching credit (same date, same absolute amount)
+       landing in a depository account (checking/savings). This catches loan
+       payments that are really just moving money between owned accounts.
+    """
+    # Index credits by "date|amount" → set of account_ids that received them.
+    credits_by_sig: dict[str, set[str]] = {}
+    for t in transactions:
+        if t["amount"] < 0:
+            sig = f"{t['date']}|{abs(float(t['amount'])):.2f}"
+            credits_by_sig.setdefault(sig, set()).add(t.get("account_id", ""))
+
+    filtered = []
+    for t in transactions:
+        if (t.get("category") or "").upper() in EXCLUDED_CATEGORIES:
+            continue
+        if t["amount"] > 0:
+            sig = f"{t['date']}|{float(t['amount']):.2f}"
+            credit_accounts = credits_by_sig.get(sig, set())
+            if credit_accounts & depository_account_ids:
+                # The money moved into a depository account — internal transfer.
+                continue
+        filtered.append(t)
+    return filtered
 
 
 def _compute_actuals(lines: list[dict], transactions: list[dict]) -> None:
@@ -103,6 +144,7 @@ class BudgetOut(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     created_at: str
+    balance: Optional[float] = None
 
 
 class BudgetLineCreate(BaseModel):
@@ -118,6 +160,11 @@ class BudgetLineUpdate(BaseModel):
     planned_amount: Optional[float] = None
 
 
+class LineOrderItem(BaseModel):
+    id: str
+    sort_order: int
+
+
 class BudgetLineOut(BaseModel):
     id: str
     budget_id: str
@@ -125,6 +172,7 @@ class BudgetLineOut(BaseModel):
     name: str
     categories: list[str] = []
     planned_amount: float
+    sort_order: Optional[int] = None
     computed_actual: Optional[float] = None  # auto-calculated from transactions
 
 
@@ -137,8 +185,8 @@ def list_budgets(
     user: dict = Depends(get_current_user),
     supabase: Client = Depends(get_supabase_client),
 ):
-    """Return all budgets for the authenticated user, newest first."""
-    return (
+    """Return all budgets for the authenticated user, newest first, with computed balance."""
+    budgets = (
         supabase.table("budgets")
         .select("*")
         .eq("user_id", user["id"])
@@ -146,6 +194,33 @@ def list_budgets(
         .execute()
         .data or []
     )
+
+    if not budgets:
+        return budgets
+
+    # Fetch all lines for these budgets in a single query and compute balance per budget
+    budget_ids = [b["id"] for b in budgets]
+    lines = (
+        supabase.table("budget_lines")
+        .select("budget_id, line_type, planned_amount")
+        .in_("budget_id", budget_ids)
+        .execute()
+        .data or []
+    )
+
+    # Group lines by budget_id and compute balance = income - expenses
+    balance_map: dict[str, float] = {b["id"]: 0.0 for b in budgets}
+    for line in lines:
+        bid = line["budget_id"]
+        if line["line_type"] == "income":
+            balance_map[bid] += float(line["planned_amount"])
+        else:
+            balance_map[bid] -= float(line["planned_amount"])
+
+    for budget in budgets:
+        budget["balance"] = round(balance_map[budget["id"]], 2)
+
+    return budgets
 
 
 @router.post("/", response_model=BudgetOut, status_code=status.HTTP_201_CREATED)
@@ -263,6 +338,7 @@ def list_lines(
         supabase.table("budget_lines")
         .select("*")
         .eq("budget_id", budget_id)
+        .order("sort_order", nullsfirst=False)
         .order("created_at")
         .execute()
         .data or []
@@ -277,13 +353,31 @@ def list_lines(
         )
         txns = (
             supabase.table("transactions")
-            .select("category, amount")
+            .select("account_id, date, category, amount")
             .eq("user_id", user["id"])
             .gte("date", start)
             .lte("date", end)
             .execute()
             .data or []
         )
+
+        # Identify depository (non-debt) accounts so we can exclude internal
+        # transfers — e.g. a loan payment that is really checking → savings.
+        # Debt account types match the dashboard's DEBT_ACCOUNT_TYPES constant.
+        DEBT_ACCOUNT_TYPES = {"credit", "loan"}
+        accounts = (
+            supabase.table("accounts")
+            .select("id, account_type")
+            .eq("user_id", user["id"])
+            .execute()
+            .data or []
+        )
+        depository_ids = {
+            a["id"] for a in accounts
+            if (a.get("account_type") or "").lower() not in DEBT_ACCOUNT_TYPES
+        }
+
+        txns = _filter_internal_transfers(txns, depository_ids)
         _compute_actuals(lines, txns)
     else:
         for line in lines:
@@ -311,6 +405,18 @@ def create_line(
         raise HTTPException(status_code=404, detail="Budget not found.")
 
     cats = [c.strip().lower() for c in (body.categories or []) if c.strip()]
+
+    # Assign sort_order = max existing + 1 within the same budget + line_type
+    existing = (
+        supabase.table("budget_lines")
+        .select("sort_order")
+        .eq("budget_id", budget_id)
+        .eq("line_type", body.line_type)
+        .execute()
+        .data or []
+    )
+    max_order = max((r["sort_order"] or 0 for r in existing), default=0)
+
     result = supabase.table("budget_lines").insert({
         "budget_id": budget_id,
         "user_id": user["id"],
@@ -318,6 +424,7 @@ def create_line(
         "name": body.name.strip(),
         "categories": cats,
         "planned_amount": body.planned_amount,
+        "sort_order": max_order + 1,
     }).execute()
 
     if not result.data:
@@ -354,6 +461,20 @@ def update_line(
     line = result.data[0]
     line["computed_actual"] = None
     return line
+
+
+@router.patch("/{budget_id}/lines/reorder", status_code=status.HTTP_204_NO_CONTENT)
+def reorder_lines(
+    budget_id: str,
+    body: list[LineOrderItem],
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Bulk-update sort_order for lines in a budget. Ignores lines not owned by the user."""
+    for item in body:
+        supabase.table("budget_lines").update({"sort_order": item.sort_order}).eq(
+            "id", item.id
+        ).eq("budget_id", budget_id).eq("user_id", user["id"]).execute()
 
 
 @router.delete("/{budget_id}/lines/{line_id}", status_code=status.HTTP_204_NO_CONTENT)

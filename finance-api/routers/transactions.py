@@ -57,7 +57,9 @@ def list_transactions(
     )
 
     if category:
-        query = query.eq("category", category)
+        # Case-insensitive match so lowercased budget line categories
+        # correctly find transactions stored with mixed-case category values.
+        query = query.ilike("category", category)
     if start_date:
         query = query.gte("date", start_date)
     if end_date:

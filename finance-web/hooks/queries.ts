@@ -10,6 +10,7 @@ import {
   createBudgetLine,
   updateBudgetLine,
   deleteBudgetLine,
+  reorderBudgetLines,
   getTransactionCategories,
   getGoals,
   createGoal,
@@ -203,6 +204,20 @@ export function useDeleteBudgetLine(budgetId: string) {
       if (ctx?.prev) qc.setQueryData(linesKey, ctx.prev)
     },
     onSettled: () => { qc.invalidateQueries({ queryKey: linesKey }) },
+  })
+}
+
+export function useReorderBudgetLines(budgetId: string) {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  const linesKey = [...queryKeys.budgets, budgetId, 'lines']
+  return useMutation({
+    mutationFn: (items: { id: string; sort_order: number }[]) =>
+      reorderBudgetLines(token, budgetId, items),
+    // On error, refetch from server so the UI reverts to the actual saved order.
+    // We intentionally do NOT invalidate on success — the optimistic cache update
+    // in handleDrop is already correct, and refetching would race with the local state.
+    onError: () => { qc.invalidateQueries({ queryKey: linesKey }) },
   })
 }
 
