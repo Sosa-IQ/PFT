@@ -126,7 +126,7 @@ function CategoryPicker({
               className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 capitalize flex items-center gap-2 whitespace-nowrap"
               onClick={() => toggle(c)}
             >
-              <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-[10px] ${
+              <span className={`w-3.5 h-3.5 shrink-0 rounded border flex items-center justify-center text-[10px] ${
                 isSelected(c)
                   ? 'bg-blue-500 border-blue-500 text-white'
                   : 'border-gray-300'
@@ -185,6 +185,7 @@ function CategorySelector({ categories, open, onToggle }: {
   onToggle: (cat: string) => void
 }) {
   const [showList, setShowList] = useState(false)
+  const [dropUp, setDropUp] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -195,13 +196,21 @@ function CategorySelector({ categories, open, onToggle }: {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  function handleToggle() {
+    if (!showList && ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      setDropUp(window.innerHeight - rect.bottom < 220)
+    }
+    setShowList((v) => !v)
+  }
+
   const anyOpen = categories.some((c) => open.has(c))
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setShowList((v) => !v)}
+        onClick={handleToggle}
         className={`text-xs border rounded-full px-2 py-0.5 transition-colors whitespace-nowrap ${
           anyOpen
             ? 'bg-blue-50 border-blue-300 text-blue-600'
@@ -211,7 +220,7 @@ function CategorySelector({ categories, open, onToggle }: {
         {categories.length} categories {showList ? '▴' : '▾'}
       </button>
       {showList && (
-        <div className="absolute left-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-max min-w-[10rem]">
+        <div className={`absolute left-0 ${dropUp ? 'bottom-7' : 'top-7'} z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-max min-w-[10rem]`}>
           {categories.map((cat) => (
             <button
               key={cat}
@@ -442,6 +451,7 @@ function LineRow({ line, allCategories, startDate, endDate, onSave, onDelete,
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set())
   // Whether the category edit dropdown is open
   const [editingCategories, setEditingCategories] = useState(false)
+  const [editCatDropUp, setEditCatDropUp] = useState(false)
   const editCatRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -507,10 +517,18 @@ function LineRow({ line, allCategories, startDate, endDate, onSave, onDelete,
   async function handleCategoryToggle(cat: string) {
     const catLower = cat.toLowerCase()
     const current = displayCategories.map((c) => c.toLowerCase())
-    const newCats = current.includes(catLower)
+    const removing = current.includes(catLower)
+    const newCats = removing
       ? displayCategories.filter((c) => c.toLowerCase() !== catLower)
       : [...displayCategories, catLower]
     setDisplayCategories(newCats)
+    if (removing) {
+      setOpenCategories((prev) => {
+        const next = new Set(prev)
+        next.delete(catLower)
+        return next
+      })
+    }
     try {
       await onSave({ name: displayName, planned_amount: displayAmount, categories: newCats })
     } catch {
@@ -596,7 +614,13 @@ function LineRow({ line, allCategories, startDate, endDate, onSave, onDelete,
             <div className="relative" ref={editCatRef}>
               <button
                 type="button"
-                onClick={() => setEditingCategories((v) => !v)}
+                onClick={() => {
+                  if (!editingCategories && editCatRef.current) {
+                    const rect = editCatRef.current.getBoundingClientRect()
+                    setEditCatDropUp(window.innerHeight - rect.bottom < 220)
+                  }
+                  setEditingCategories((v) => !v)
+                }}
                 className={
                   displayCategories.length === 0
                     ? 'text-xs text-gray-400 border border-gray-200 rounded-full px-2 py-0.5 hover:border-gray-300 hover:text-gray-500 transition-colors'
@@ -607,7 +631,7 @@ function LineRow({ line, allCategories, startDate, endDate, onSave, onDelete,
                 {displayCategories.length === 0 ? 'link categories' : '✎'}
               </button>
               {editingCategories && (
-                <div className="absolute left-0 top-6 z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-max min-w-[12rem] max-h-52 overflow-y-auto">
+                <div className={`absolute left-0 ${editCatDropUp ? 'bottom-6' : 'top-6'} z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-max min-w-[12rem] max-h-52 overflow-y-auto`}>
                   {allCategories.length === 0 && (
                     <p className="text-xs text-gray-400 px-3 py-2">No categories found</p>
                   )}
@@ -619,7 +643,7 @@ function LineRow({ line, allCategories, startDate, endDate, onSave, onDelete,
                         onClick={() => handleCategoryToggle(c)}
                         className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 capitalize flex items-center gap-2 whitespace-nowrap"
                       >
-                        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-[10px] ${
+                        <span className={`w-3.5 h-3.5 shrink-0 rounded border flex items-center justify-center text-[10px] ${
                           selected ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300'
                         }`}>
                           {selected && '✓'}
@@ -972,7 +996,7 @@ export default function BudgetDetailPage() {
       </div>
 
       {/* Lines list */}
-      <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+      <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-visible mb-4">
         {incomeLines.length === 0 && expenseLines.length === 0 && !adding ? (
           <p className="text-sm text-gray-400 text-center py-12">
             No entries yet. Add income or expenses below.
