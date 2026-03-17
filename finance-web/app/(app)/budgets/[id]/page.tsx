@@ -13,6 +13,8 @@ import {
   useUpdateBudget,
   useTransactionCategories,
   useTransactions,
+  useExcludeTransaction,
+  useIncludeTransaction,
   queryKeys,
 } from '@/hooks/queries'
 import type { Budget, BudgetLine } from '@/lib/api'
@@ -246,11 +248,16 @@ function CategorySelector({ categories, open, onToggle }: {
 
 const TXNS_PAGE_SIZE = 10
 
-function CategoryTransactionsPanel({ category, startDate, endDate, isIncome }: {
+function CategoryTransactionsPanel({
+  category, startDate, endDate, isIncome, budgetId, lineId, excludedIds,
+}: {
   category: string
   startDate: string
   endDate: string
   isIncome: boolean
+  budgetId: string
+  lineId: string
+  excludedIds: Set<string>
 }) {
   const [page, setPage] = useState(0)
   const { data: allTxns = [], isLoading } = useTransactions({
@@ -259,6 +266,17 @@ function CategoryTransactionsPanel({ category, startDate, endDate, isIncome }: {
     end_date: endDate,
     limit: 500,
   })
+
+  const excludeMut = useExcludeTransaction(budgetId)
+  const includeMut = useIncludeTransaction(budgetId)
+
+  function toggleTracked(transactionId: string, amount: number) {
+    if (excludedIds.has(transactionId)) {
+      includeMut.mutate({ lineId, transactionId, amount })
+    } else {
+      excludeMut.mutate({ lineId, transactionId, amount })
+    }
+  }
 
   const pageCount = Math.ceil(allTxns.length / TXNS_PAGE_SIZE)
   const txns = allTxns.slice(page * TXNS_PAGE_SIZE, (page + 1) * TXNS_PAGE_SIZE)
@@ -283,21 +301,44 @@ function CategoryTransactionsPanel({ category, startDate, endDate, isIncome }: {
       ) : (
         <>
           <div className="divide-y divide-gray-100">
-            {txns.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 px-4 py-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-700 truncate">
-                    {t.merchant_name ?? t.category ?? '—'}
-                  </p>
-                  <p className="text-[10px] text-gray-400">
-                    {t.date}{t.account_name ? ` · ${t.account_name}` : ''}
-                  </p>
+            {txns.map((t) => {
+              const excluded = excludedIds.has(t.id)
+              return (
+                <div
+                  key={t.id}
+                  className={`flex items-center gap-3 px-4 py-2 transition-opacity ${excluded ? 'opacity-40' : ''}`}
+                >
+                  {/* Tracking toggle */}
+                  <button
+                    type="button"
+                    onClick={() => toggleTracked(t.id, t.amount)}
+                    title={excluded ? 'Click to track this transaction' : 'Click to stop tracking'}
+                    className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                      excluded
+                        ? 'border-gray-300 bg-white'
+                        : 'border-blue-400 bg-blue-400'
+                    }`}
+                  >
+                    {!excluded && (
+                      <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </button>
+                  <div className={`flex-1 min-w-0 ${excluded ? 'line-through' : ''}`}>
+                    <p className="text-xs font-medium text-gray-700 truncate">
+                      {t.merchant_name ?? t.category ?? '—'}
+                    </p>
+                    <p className="text-[10px] text-gray-400">
+                      {t.date}{t.account_name ? ` · ${t.account_name}` : ''}
+                    </p>
+                  </div>
+                  <span className={`text-xs font-semibold tabular-nums shrink-0 ${isIncome ? 'text-green-600' : 'text-gray-700'}`}>
+                    {fmt(Math.abs(t.amount))}
+                  </span>
                 </div>
-                <span className={`text-xs font-semibold tabular-nums shrink-0 ${isIncome ? 'text-green-600' : 'text-gray-700'}`}>
-                  {fmt(Math.abs(t.amount))}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {pageCount > 1 && (
@@ -419,13 +460,14 @@ function InlineRow({ lineType, allCategories, onSave, onCancel }: InlineRowProps
 // and expandable per-category transaction panels.
 // ---------------------------------------------------------------------------
 
-function LineRow({ line, allCategories, startDate, endDate, onSave, onDelete,
+function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, onDelete,
   isDragOver, onDragStart, onDragOver, onDrop, onDragEnd,
 }: {
   line: BudgetLine
   allCategories: string[]
   startDate: string
   endDate: string
+  budgetId: string
   onSave: (data: { name: string; planned_amount: number; categories: string[] }) => Promise<void>
   onDelete: () => void
   isDragOver?: boolean
@@ -709,6 +751,9 @@ function LineRow({ line, allCategories, startDate, endDate, onSave, onDelete,
           startDate={startDate}
           endDate={endDate}
           isIncome={isIncome}
+          budgetId={budgetId}
+          lineId={line.id}
+          excludedIds={new Set(line.excluded_transaction_ids)}
         />
       ))}
     </div>
@@ -936,6 +981,7 @@ export default function BudgetDetailPage() {
       planned_amount: data.planned_amount,
       sort_order: null,
       computed_actual: null,
+      excluded_transaction_ids: [],
     }
     qc.setQueryData<BudgetLine[]>(linesKey, (old) => [...(old ?? []), optimistic])
     setAdding(null)
@@ -1011,6 +1057,7 @@ export default function BudgetDetailPage() {
                 allCategories={categories}
                 startDate={period.start}
                 endDate={period.end}
+                budgetId={id}
                 onSave={(data) => handleEdit(line, data)}
                 onDelete={() => handleDelete(line)}
                 isDragOver={dragOverId === line.id}
@@ -1044,6 +1091,7 @@ export default function BudgetDetailPage() {
                 allCategories={categories}
                 startDate={period.start}
                 endDate={period.end}
+                budgetId={id}
                 onSave={(data) => handleEdit(line, data)}
                 onDelete={() => handleDelete(line)}
                 isDragOver={dragOverId === line.id}

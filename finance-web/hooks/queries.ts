@@ -11,6 +11,8 @@ import {
   updateBudgetLine,
   deleteBudgetLine,
   reorderBudgetLines,
+  excludeTransaction,
+  includeTransaction,
   getTransactionCategories,
   getGoals,
   createGoal,
@@ -218,6 +220,72 @@ export function useReorderBudgetLines(budgetId: string) {
     // We intentionally do NOT invalidate on success — the optimistic cache update
     // in handleDrop is already correct, and refetching would race with the local state.
     onError: () => { qc.invalidateQueries({ queryKey: linesKey }) },
+  })
+}
+
+export function useExcludeTransaction(budgetId: string) {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  const linesKey = [...queryKeys.budgets, budgetId, 'lines']
+  return useMutation({
+    mutationFn: ({ lineId, transactionId }: { lineId: string; transactionId: string; amount: number }) =>
+      excludeTransaction(token, budgetId, lineId, transactionId),
+    onMutate: async ({ lineId, transactionId, amount }) => {
+      await qc.cancelQueries({ queryKey: linesKey })
+      const prev = qc.getQueryData<BudgetLine[]>(linesKey)
+      const contribution = Math.abs(amount)
+      qc.setQueryData<BudgetLine[]>(linesKey, (old) =>
+        (old ?? []).map((l) =>
+          l.id === lineId
+            ? {
+                ...l,
+                excluded_transaction_ids: [...l.excluded_transaction_ids, transactionId],
+                computed_actual: l.computed_actual != null
+                  ? Math.max(0, l.computed_actual - contribution)
+                  : null,
+              }
+            : l
+        )
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(linesKey, ctx.prev)
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: linesKey }) },
+  })
+}
+
+export function useIncludeTransaction(budgetId: string) {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  const linesKey = [...queryKeys.budgets, budgetId, 'lines']
+  return useMutation({
+    mutationFn: ({ lineId, transactionId }: { lineId: string; transactionId: string; amount: number }) =>
+      includeTransaction(token, budgetId, lineId, transactionId),
+    onMutate: async ({ lineId, transactionId, amount }) => {
+      await qc.cancelQueries({ queryKey: linesKey })
+      const prev = qc.getQueryData<BudgetLine[]>(linesKey)
+      const contribution = Math.abs(amount)
+      qc.setQueryData<BudgetLine[]>(linesKey, (old) =>
+        (old ?? []).map((l) =>
+          l.id === lineId
+            ? {
+                ...l,
+                excluded_transaction_ids: l.excluded_transaction_ids.filter((id) => id !== transactionId),
+                computed_actual: l.computed_actual != null
+                  ? l.computed_actual + contribution
+                  : null,
+              }
+            : l
+        )
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(linesKey, ctx.prev)
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: linesKey }) },
   })
 }
 

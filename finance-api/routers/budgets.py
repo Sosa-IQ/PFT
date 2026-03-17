@@ -7,18 +7,21 @@ Each budget contains income and expense lines.
 Lines can optionally link to one or more transaction categories.
 When categories are linked, computed_actual is calculated from matching
 transactions within the budget's date range (for progress tracking).
+Users can exclude individual transactions from being tracked per line.
 
 Endpoints:
-    GET    /budgets/                        → List all budgets
-    POST   /budgets/                        → Create a budget
-    GET    /budgets/{id}                    → Get a budget
-    PUT    /budgets/{id}                    → Update a budget
-    DELETE /budgets/{id}                    → Delete a budget
-    GET    /budgets/{id}/lines              → List lines with computed actuals
-    POST   /budgets/{id}/lines              → Add a line
-    PATCH  /budgets/{id}/lines/reorder     → Bulk-update sort_order
-    PUT    /budgets/{id}/lines/{line_id}    → Update a line
-    DELETE /budgets/{id}/lines/{line_id}    → Delete a line
+    GET    /budgets/                                                    → List all budgets
+    POST   /budgets/                                                    → Create a budget
+    GET    /budgets/{id}                                                → Get a budget
+    PUT    /budgets/{id}                                                → Update a budget
+    DELETE /budgets/{id}                                                → Delete a budget
+    GET    /budgets/{id}/lines                                          → List lines with computed actuals
+    POST   /budgets/{id}/lines                                          → Add a line
+    PATCH  /budgets/{id}/lines/reorder                                  → Bulk-update sort_order
+    PUT    /budgets/{id}/lines/{line_id}                                → Update a line
+    DELETE /budgets/{id}/lines/{line_id}                                → Delete a line
+    POST   /budgets/{id}/lines/{line_id}/excluded-transactions          → Exclude a transaction
+    DELETE /budgets/{id}/lines/{line_id}/excluded-transactions/{txn_id} → Re-include a transaction
 """
 
 from datetime import date, timedelta
@@ -56,65 +59,33 @@ def _current_period(date_range_type: str, start_date, end_date) -> tuple[str, st
         return str(month_start), str(month_end)
 
 
-# Categories Plaid uses for account-to-account transfers — never real spending.
-# Mirrors the EXCLUDED_CATEGORIES constant in the dashboard frontend.
-EXCLUDED_CATEGORIES = {"TRANSFER_OUT", "TRANSFER_IN"}
-
-
-def _filter_internal_transfers(
-    transactions: list[dict],
-    depository_account_ids: set[str],
-) -> list[dict]:
-    """
-    Remove internal transfers from a transaction list, mirroring the dashboard's
-    groupByCategory logic.
-
-    Two filters are applied:
-    1. Drop any transaction whose category is TRANSFER_OUT or TRANSFER_IN.
-    2. Drop debits that have a matching credit (same date, same absolute amount)
-       landing in a depository account (checking/savings). This catches loan
-       payments that are really just moving money between owned accounts.
-    """
-    # Index credits by "date|amount" → set of account_ids that received them.
-    credits_by_sig: dict[str, set[str]] = {}
-    for t in transactions:
-        if t["amount"] < 0:
-            sig = f"{t['date']}|{abs(float(t['amount'])):.2f}"
-            credits_by_sig.setdefault(sig, set()).add(t.get("account_id", ""))
-
-    filtered = []
-    for t in transactions:
-        if (t.get("category") or "").upper() in EXCLUDED_CATEGORIES:
-            continue
-        if t["amount"] > 0:
-            sig = f"{t['date']}|{float(t['amount']):.2f}"
-            credit_accounts = credits_by_sig.get(sig, set())
-            if credit_accounts & depository_account_ids:
-                # The money moved into a depository account — internal transfer.
-                continue
-        filtered.append(t)
-    return filtered
-
-
 def _compute_actuals(lines: list[dict], transactions: list[dict]) -> None:
-    """Mutate each line dict in-place, setting computed_actual from transactions."""
+    """Mutate each line dict in-place, setting computed_actual from transactions.
+
+    Transactions listed in the line's excluded_transaction_ids are skipped.
+    """
     for line in lines:
         cats = line.get("categories") or []
         cats_lower = {c.strip().lower() for c in cats if c}
         if not cats_lower:
             line["computed_actual"] = None
             continue
+        excluded = set(line.get("excluded_transaction_ids") or [])
         if line["line_type"] == "expense":
             # Positive amounts = debits (expenses)
             total = sum(
                 t["amount"] for t in transactions
-                if (t.get("category") or "").lower() in cats_lower and t["amount"] > 0
+                if (t.get("category") or "").lower() in cats_lower
+                and t["amount"] > 0
+                and t["id"] not in excluded
             )
         else:
             # Negative amounts = credits (income) — take absolute value
             total = abs(sum(
                 t["amount"] for t in transactions
-                if (t.get("category") or "").lower() in cats_lower and t["amount"] < 0
+                if (t.get("category") or "").lower() in cats_lower
+                and t["amount"] < 0
+                and t["id"] not in excluded
             ))
         line["computed_actual"] = round(total, 2)
 
@@ -174,6 +145,7 @@ class BudgetLineOut(BaseModel):
     planned_amount: float
     sort_order: Optional[int] = None
     computed_actual: Optional[float] = None  # auto-calculated from transactions
+    excluded_transaction_ids: list[str] = []  # transactions excluded from tracking
 
 
 # ---------------------------------------------------------------------------
@@ -353,7 +325,7 @@ def list_lines(
         )
         txns = (
             supabase.table("transactions")
-            .select("account_id, date, category, amount")
+            .select("id, date, category, amount")
             .eq("user_id", user["id"])
             .gte("date", start)
             .lte("date", end)
@@ -361,27 +333,27 @@ def list_lines(
             .data or []
         )
 
-        # Identify depository (non-debt) accounts so we can exclude internal
-        # transfers — e.g. a loan payment that is really checking → savings.
-        # Debt account types match the dashboard's DEBT_ACCOUNT_TYPES constant.
-        DEBT_ACCOUNT_TYPES = {"credit", "loan"}
-        accounts = (
-            supabase.table("accounts")
-            .select("id, account_type")
-            .eq("user_id", user["id"])
+        # Fetch excluded transaction IDs for all lines in this budget
+        line_ids = [l["id"] for l in lines]
+        exclusions = (
+            supabase.table("budget_line_excluded_transactions")
+            .select("budget_line_id, transaction_id")
+            .in_("budget_line_id", line_ids)
             .execute()
             .data or []
         )
-        depository_ids = {
-            a["id"] for a in accounts
-            if (a.get("account_type") or "").lower() not in DEBT_ACCOUNT_TYPES
-        }
+        excluded_by_line: dict[str, list[str]] = {}
+        for ex in exclusions:
+            excluded_by_line.setdefault(ex["budget_line_id"], []).append(ex["transaction_id"])
 
-        txns = _filter_internal_transfers(txns, depository_ids)
+        for line in lines:
+            line["excluded_transaction_ids"] = excluded_by_line.get(line["id"], [])
+
         _compute_actuals(lines, txns)
     else:
         for line in lines:
             line["computed_actual"] = None
+            line["excluded_transaction_ids"] = []
 
     return lines
 
@@ -494,3 +466,61 @@ def delete_line(
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Budget line not found.")
+
+
+# ---------------------------------------------------------------------------
+# Excluded Transaction Endpoints
+# ---------------------------------------------------------------------------
+
+class ExcludeTransactionBody(BaseModel):
+    transaction_id: str
+
+
+@router.post(
+    "/{budget_id}/lines/{line_id}/excluded-transactions",
+    status_code=status.HTTP_201_CREATED,
+)
+def exclude_transaction(
+    budget_id: str,
+    line_id: str,
+    body: ExcludeTransactionBody,
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Mark a transaction as excluded from tracking for this budget line."""
+    # Verify the line belongs to the user
+    if not (
+        supabase.table("budget_lines")
+        .select("id")
+        .eq("id", line_id)
+        .eq("budget_id", budget_id)
+        .eq("user_id", user["id"])
+        .execute()
+        .data
+    ):
+        raise HTTPException(status_code=404, detail="Budget line not found.")
+
+    # Upsert — silently ignore if already excluded
+    supabase.table("budget_line_excluded_transactions").upsert({
+        "user_id": user["id"],
+        "budget_line_id": line_id,
+        "transaction_id": body.transaction_id,
+    }, on_conflict="budget_line_id,transaction_id").execute()
+    return {"ok": True}
+
+
+@router.delete(
+    "/{budget_id}/lines/{line_id}/excluded-transactions/{transaction_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def include_transaction(
+    budget_id: str,
+    line_id: str,
+    transaction_id: str,
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Remove a transaction from the excluded list, restoring it to tracking."""
+    supabase.table("budget_line_excluded_transactions").delete().eq(
+        "budget_line_id", line_id
+    ).eq("transaction_id", transaction_id).eq("user_id", user["id"]).execute()

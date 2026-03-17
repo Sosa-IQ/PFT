@@ -53,7 +53,8 @@ export interface BudgetLine {
   categories: string[]
   planned_amount: number
   sort_order: number | null
-  computed_actual: number | null   // auto-calculated from transactions
+  computed_actual: number | null       // auto-calculated from transactions
+  excluded_transaction_ids: string[]   // transactions excluded from tracking
 }
 
 export interface Goal {
@@ -178,6 +179,31 @@ export async function reorderBudgetLines(
     method: 'PATCH',
     body: JSON.stringify(items),
   })
+}
+
+export async function excludeTransaction(
+  token: string,
+  budgetId: string,
+  lineId: string,
+  transactionId: string,
+): Promise<void> {
+  await apiFetch<unknown>(`/budgets/${budgetId}/lines/${lineId}/excluded-transactions`, token, {
+    method: 'POST',
+    body: JSON.stringify({ transaction_id: transactionId }),
+  })
+}
+
+export async function includeTransaction(
+  token: string,
+  budgetId: string,
+  lineId: string,
+  transactionId: string,
+): Promise<void> {
+  return apiFetch<void>(
+    `/budgets/${budgetId}/lines/${lineId}/excluded-transactions/${transactionId}`,
+    token,
+    { method: 'DELETE' },
+  )
 }
 
 // ── Transaction Categories ─────────────────────────────────────────────────
