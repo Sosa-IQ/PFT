@@ -1,0 +1,22 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [prod]
+    paths:
+      - 'finance-api/**'
+      - 'finance-mcp/**'
+      - 'scripts/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            bash /home/ubuntu/PFT/scripts/deploy.sh prod
