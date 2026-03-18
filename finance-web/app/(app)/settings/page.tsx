@@ -99,6 +99,33 @@ export default function SettingsPage() {
   const exchangeMutation = useExchangePlaidToken()
 
   const [error, setError] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string>('')
+  const [userName, setUserName] = useState<string>('')
+  const [nameInput, setNameInput] = useState<string>('')
+  const [savingName, setSavingName] = useState(false)
+  const [nameSaved, setNameSaved] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      const name = (user.user_metadata?.full_name as string | undefined) ?? ''
+      setUserEmail(user.email ?? '')
+      setUserName(name)
+      setNameInput(name)
+    })
+  }, [])
+
+  async function handleSaveName() {
+    setSavingName(true)
+    setNameSaved(false)
+    const { error } = await supabase.auth.updateUser({ data: { full_name: nameInput } })
+    setSavingName(false)
+    if (!error) {
+      setUserName(nameInput)
+      setNameSaved(true)
+      setTimeout(() => setNameSaved(false), 2500)
+    }
+  }
 
   // Plaid link token (fetched from backend when user clicks "Connect").
   const [linkToken, setLinkToken] = useState<string | null>(null)
@@ -248,15 +275,43 @@ export default function SettingsPage() {
       <ClaudeConnectCard />
 
       {/* Account */}
-      <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-3">
+      <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
         <h2 className="font-semibold text-gray-800">Account</h2>
-        <p className="text-sm text-gray-500">
-          Signed in as{' '}
-          <span className="font-medium text-gray-700">
-            {/* Session email shown in sidebar */}
-            your account
-          </span>
-        </p>
+
+        <div className="space-y-3">
+          {/* Email — read-only */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Email</label>
+            <input
+              type="email"
+              value={userEmail}
+              readOnly
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 cursor-default select-all"
+            />
+          </div>
+
+          {/* Name — editable */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder="Your name"
+                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleSaveName}
+                disabled={savingName || nameInput === userName || nameInput.trim() === ''}
+                className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {savingName ? 'Saving…' : nameSaved ? 'Saved!' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <button
           onClick={async () => {
             await supabase.auth.signOut()

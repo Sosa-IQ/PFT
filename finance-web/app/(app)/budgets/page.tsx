@@ -1,195 +1,436 @@
 'use client'
 
-import { useState } from 'react'
-import { useBudgets, useCreateBudget, useUpdateBudget, useDeleteBudget, useTransactions } from '@/hooks/queries'
-import type { Budget, Transaction } from '@/lib/api'
-import BudgetCard from '@/components/BudgetCard'
+import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useBudgets, useCreateBudget, useDeleteBudget, useUpdateBudget } from '@/hooks/queries'
+import type { Budget } from '@/lib/api'
 
-// Returns "YYYY-MM-DD" for the first and last day of the current month.
-function currentMonthRange() {
-  const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), 1)
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-  return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0],
-  }
+type DateRangeType = 'monthly' | 'weekly' | 'biweekly' | 'custom'
+
+const DATE_RANGE_LABELS: Record<DateRangeType, string> = {
+  monthly: 'Monthly',
+  weekly: 'Weekly',
+  biweekly: 'Bi-weekly',
+  custom: 'Custom',
 }
 
-// Sum transactions for a given category (debits only).
-function spentForCategory(txns: Transaction[], category: string): number {
-  return txns
-    .filter((t) => t.category?.toLowerCase() === category.toLowerCase() && t.amount > 0)
-    .reduce((s, t) => s + t.amount, 0)
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    signDisplay: 'exceptZero',
+  }).format(n)
 }
 
-const { start, end } = currentMonthRange()
+// ---------------------------------------------------------------------------
+// Budget card — matches Fudget list item style
+// ---------------------------------------------------------------------------
 
-export default function BudgetsPage() {
-  const { data: budgets = [], isLoading: loadingBudgets, error: budgetError } = useBudgets()
-  const { data: transactions = [], isLoading: loadingTxns } = useTransactions({
-    start_date: start,
-    end_date: end,
-    limit: 500,
-  })
+function BudgetCard({ budget, onClick, onDelete, onEditName, onEditDate }: {
+  budget: Budget & { balance?: number }
+  onClick: () => void
+  onDelete: () => void
+  onEditName: () => void
+  onEditDate: () => void
+}) {
+  const balance = budget.balance ?? 0
+  const positive = balance >= 0
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
-  const createBudgetMut = useCreateBudget()
-  const updateBudgetMut = useUpdateBudget()
-  const deleteBudgetMut = useDeleteBudget()
-
-  // Add / Edit form state
-  const [showForm, setShowForm] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<string | null>(null)
-  const [formCategory, setFormCategory] = useState('')
-  const [formLimit, setFormLimit] = useState('')
-  const [formError, setFormError] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  function openAdd() {
-    setEditingCategory(null)
-    setFormCategory('')
-    setFormLimit('')
-    setFormError(null)
-    setShowForm(true)
-  }
-
-  function openEdit(budget: Budget) {
-    setEditingCategory(budget.category)
-    setFormCategory(budget.category)
-    setFormLimit(String(budget.monthly_limit))
-    setFormError(null)
-    setShowForm(true)
-  }
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
-    setFormError(null)
-    const limit = parseFloat(formLimit)
-    if (isNaN(limit) || limit <= 0) {
-      setFormError('Limit must be a positive number.')
-      return
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
     }
-    try {
-      if (editingCategory) {
-        await updateBudgetMut.mutateAsync({ category: editingCategory, monthly_limit: limit })
-      } else {
-        await createBudgetMut.mutateAsync({ category: formCategory.trim(), monthly_limit: limit })
-      }
-      setShowForm(false)
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Save failed')
-    }
-  }
-
-  async function handleDelete(category: string) {
-    if (!confirm(`Delete budget for "${category}"?`)) return
-    try {
-      await deleteBudgetMut.mutateAsync(category)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed')
-    }
-  }
-
-  const saving = createBudgetMut.isPending || updateBudgetMut.isPending
-  const loading = loadingBudgets || loadingTxns
-
-  if (loading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [menuOpen])
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Budgets</h1>
-        <button
-          onClick={openAdd}
-          className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
-        >
-          + Add Budget
-        </button>
-      </div>
-
-      {(budgetError || error) && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-          {budgetError instanceof Error ? budgetError.message : error}
+    <div className="relative flex items-center bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible">
+      <button
+        onClick={onClick}
+        className="flex-1 flex items-center justify-between px-5 py-4 text-left"
+      >
+        <span className="font-medium text-gray-800">{budget.name}</span>
+        <div className="flex items-center gap-3">
+          <span className={`font-semibold text-base ${positive ? 'text-green-600' : 'text-orange-500'}`}>
+            {formatCurrency(balance)}
+          </span>
+          <span className="text-gray-300 text-lg">›</span>
         </div>
-      )}
-
-      {/* Add / Edit Form */}
-      {showForm && (
-        <form
-          onSubmit={handleSave}
-          className="bg-white rounded-xl border border-gray-200 p-5 space-y-4"
+      </button>
+      {/* Divider + kebab */}
+      <div className="w-px h-10 bg-gray-100" />
+      <div ref={menuRef} className="relative">
+        <button
+          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
+          className="px-4 py-4 text-gray-400 hover:text-gray-600 transition-colors text-lg"
+          title="Options"
         >
-          <h2 className="font-semibold text-gray-800">
-            {editingCategory ? `Edit "${editingCategory}"` : 'New Budget'}
-          </h2>
-
-          {!editingCategory && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <input
-                type="text"
-                value={formCategory}
-                onChange={(e) => setFormCategory(e.target.value)}
-                required
-                placeholder="e.g. groceries"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Limit ($)</label>
-            <input
-              type="number"
-              value={formLimit}
-              onChange={(e) => setFormLimit(e.target.value)}
-              required
-              min="0.01"
-              step="0.01"
-              placeholder="500.00"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {formError && <p className="text-sm text-red-500">{formError}</p>}
-
-          <div className="flex gap-3">
+          ⋮
+        </button>
+        {menuOpen && (
+          <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
             <button
-              type="submit"
-              disabled={saving}
-              className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              onClick={() => { setMenuOpen(false); onEditName() }}
+              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              {saving ? 'Saving…' : 'Save'}
+              Edit Name
             </button>
             <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="text-gray-500 rounded-lg px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+              onClick={() => { setMenuOpen(false); onEditDate() }}
+              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
+              Edit Date
+            </button>
+            <button
+              onClick={() => { setMenuOpen(false); onDelete() }}
+              className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Edit name modal
+// ---------------------------------------------------------------------------
+
+function EditNameModal({ budget, onClose, onSave }: {
+  budget: Budget
+  onClose: () => void
+  onSave: (name: string) => void
+}) {
+  const [name, setName] = useState(budget.name)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30">
+      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl p-6 space-y-5">
+        <h2 className="text-lg font-semibold text-gray-800">Edit Name</h2>
+        <form onSubmit={(e) => { e.preventDefault(); if (name.trim()) onSave(name.trim()) }} className="space-y-4">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            required
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
               Cancel
+            </button>
+            <button type="submit"
+              className="flex-1 bg-blue-500 text-white rounded-xl py-3 text-sm font-medium hover:bg-blue-600 transition-colors">
+              Save
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Edit date modal
+// ---------------------------------------------------------------------------
+
+function EditDateModal({ budget, onClose, onSave }: {
+  budget: Budget
+  onClose: () => void
+  onSave: (data: { date_range_type: DateRangeType; start_date?: string; end_date?: string }) => void
+}) {
+  const [dateRangeType, setDateRangeType] = useState<DateRangeType>(budget.date_range_type as DateRangeType)
+  const [startDate, setStartDate] = useState(budget.start_date ?? '')
+  const [endDate, setEndDate] = useState(budget.end_date ?? '')
+  const [error, setError] = useState<string | null>(null)
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (dateRangeType === 'custom' && (!startDate || !endDate)) {
+      setError('Start and end dates are required.')
+      return
+    }
+    onSave({
+      date_range_type: dateRangeType,
+      ...(dateRangeType === 'custom' ? { start_date: startDate, end_date: endDate } : {}),
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30">
+      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl p-6 space-y-5">
+        <h2 className="text-lg font-semibold text-gray-800">Edit Date Range</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Period</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['monthly', 'weekly', 'biweekly', 'custom'] as DateRangeType[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setDateRangeType(r)}
+                  className={`rounded-xl border px-2 py-2 text-xs font-medium transition-colors ${
+                    dateRangeType === r
+                      ? 'bg-blue-500 border-blue-500 text-white'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  {DATE_RANGE_LABELS[r]}
+                </button>
+              ))}
+            </div>
+            {dateRangeType === 'custom' && (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Start</p>
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">End</p>
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+            )}
+          </div>
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancel
+            </button>
+            <button type="submit"
+              className="flex-1 bg-blue-500 text-white rounded-xl py-3 text-sm font-medium hover:bg-blue-600 transition-colors">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// New budget modal
+// ---------------------------------------------------------------------------
+
+function NewBudgetModal({ onClose, onCreate }: {
+  onClose: () => void
+  onCreate: (budget: Budget) => void
+}) {
+  const createMut = useCreateBudget()
+  const [name, setName] = useState('')
+  const [dateRangeType, setDateRangeType] = useState<DateRangeType>('monthly')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (!name.trim()) { setError('Name is required.'); return }
+    if (dateRangeType === 'custom' && (!startDate || !endDate)) {
+      setError('Start and end dates are required.')
+      return
+    }
+    try {
+      const budget = await createMut.mutateAsync({
+        name: name.trim(),
+        date_range_type: dateRangeType,
+        ...(dateRangeType === 'custom' ? { start_date: startDate, end_date: endDate } : {}),
+      })
+      onCreate(budget)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create budget.')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30">
+      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl p-6 space-y-5">
+        <h2 className="text-lg font-semibold text-gray-800">New Budget</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Name */}
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            autoFocus
+            placeholder="Budget name (e.g. August)"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+          {/* Date range */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Period</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(['monthly', 'weekly', 'biweekly', 'custom'] as DateRangeType[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setDateRangeType(r)}
+                  className={`rounded-xl border px-2 py-2 text-xs font-medium transition-colors ${
+                    dateRangeType === r
+                      ? 'bg-blue-500 border-blue-500 text-white'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  {DATE_RANGE_LABELS[r]}
+                </button>
+              ))}
+            </div>
+
+            {dateRangeType === 'custom' && (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Start</p>
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">End</p>
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {error && <p className="text-sm text-red-500">{error}</p>}
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={createMut.isPending}
+              className="flex-1 bg-blue-500 text-white rounded-xl py-3 text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors">
+              {createMut.isPending ? 'Creating…' : 'Create'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export default function BudgetsPage() {
+  const router = useRouter()
+  const { data: budgets = [], isLoading, error } = useBudgets()
+  const deleteMut = useDeleteBudget()
+  const updateMut = useUpdateBudget()
+  const [showModal, setShowModal] = useState(false)
+  const [editingName, setEditingName] = useState<Budget | null>(null)
+  const [editingDate, setEditingDate] = useState<Budget | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  async function handleDelete(budget: Budget) {
+    if (!confirm(`Delete "${budget.name}"? All entries will be removed.`)) return
+    try {
+      await deleteMut.mutateAsync(budget.id)
+    } catch {
+      setActionError('Failed to delete budget.')
+    }
+  }
+
+  async function handleEditName(budget: Budget, name: string) {
+    try {
+      await updateMut.mutateAsync({ id: budget.id, name })
+      setEditingName(null)
+    } catch {
+      setActionError('Failed to update name.')
+    }
+  }
+
+  async function handleEditDate(budget: Budget, data: { date_range_type: string; start_date?: string; end_date?: string }) {
+    try {
+      await updateMut.mutateAsync({ id: budget.id, ...data })
+      setEditingDate(null)
+    } catch {
+      setActionError('Failed to update date range.')
+    }
+  }
+
+  if (isLoading) return <p className="text-gray-400 text-sm text-center py-20">Loading…</p>
+
+  return (
+    <div className="max-w-lg mx-auto flex flex-col min-h-[calc(100vh-4rem)]">
+      <h1 className="text-2xl font-semibold mb-5">Budgets</h1>
+
+      {(error || actionError) && (
+        <p className="text-sm text-red-500 mb-3">
+          {error instanceof Error ? error.message : actionError}
+        </p>
       )}
 
-      {/* Budget Cards */}
-      {budgets.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-12">
-          No budgets yet. Add one to start tracking your spending limits.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {budgets.map((b) => (
+      <div className="flex-1 space-y-3">
+        {budgets.length === 0 ? (
+          <p className="text-gray-400 text-sm text-center py-16">
+            No budgets yet. Tap Add Budget to create one.
+          </p>
+        ) : (
+          budgets.map((b) => (
             <BudgetCard
-              key={b.category}
-              category={b.category}
-              monthly_limit={b.monthly_limit}
-              spent={spentForCategory(transactions, b.category)}
-              onEdit={() => openEdit(b)}
-              onDelete={() => handleDelete(b.category)}
+              key={b.id}
+              budget={b}
+              onClick={() => router.push(`/budgets/${b.id}`)}
+              onDelete={() => handleDelete(b)}
+              onEditName={() => setEditingName(b)}
+              onEditDate={() => setEditingDate(b)}
             />
-          ))}
-        </div>
+          ))
+        )}
+      </div>
+
+      {/* Sticky add button */}
+      <div className="sticky bottom-0 pb-4 pt-3 bg-gray-50">
+        <button
+          onClick={() => setShowModal(true)}
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-2xl py-4 text-base font-semibold shadow-md transition-colors"
+        >
+          Add Budget
+        </button>
+      </div>
+
+      {showModal && (
+        <NewBudgetModal
+          onClose={() => setShowModal(false)}
+          onCreate={(budget) => {
+            setShowModal(false)
+            router.push(`/budgets/${budget.id}`)
+          }}
+        />
+      )}
+
+      {editingName && (
+        <EditNameModal
+          budget={editingName}
+          onClose={() => setEditingName(null)}
+          onSave={(name) => handleEditName(editingName, name)}
+        />
+      )}
+
+      {editingDate && (
+        <EditDateModal
+          budget={editingDate}
+          onClose={() => setEditingDate(null)}
+          onSave={(data) => handleEditDate(editingDate, data)}
+        />
       )}
     </div>
   )

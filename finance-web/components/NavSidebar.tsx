@@ -55,7 +55,9 @@ export default function NavSidebar({ session }: { session: Session | null }) {
 
       {/* User + sign out */}
       <div className="border-t border-gray-200 pt-4 mt-4 space-y-2">
-        <p className="text-xs text-gray-400 truncate px-1">{session?.user?.email}</p>
+        <p className="text-xs text-gray-400 truncate px-1">
+          {(session?.user?.user_metadata?.full_name as string | undefined) || session?.user?.email}
+        </p>
         <button
           onClick={handleSignOut}
           className="text-sm text-gray-500 hover:text-red-500 transition-colors px-1"
