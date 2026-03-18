@@ -57,7 +57,9 @@ def list_transactions(
     )
 
     if category:
-        query = query.eq("category", category)
+        # Case-insensitive match so lowercased budget line categories
+        # correctly find transactions stored with mixed-case category values.
+        query = query.ilike("category", category)
     if start_date:
         query = query.gte("date", start_date)
     if end_date:
@@ -70,3 +72,27 @@ def list_transactions(
         account = row.pop("accounts", None)
         row["account_name"] = (account or {}).get("account_name")
     return rows
+
+
+@router.get("/categories", response_model=list[str])
+def list_categories(
+    user: dict = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase_client),
+):
+    """Return all distinct non-null transaction categories for the user, sorted."""
+    rows = (
+        supabase.table("transactions")
+        .select("category")
+        .eq("user_id", user["id"])
+        .not_.is_("category", "null")
+        .execute()
+        .data or []
+    )
+    seen = set()
+    categories = []
+    for row in rows:
+        cat = (row.get("category") or "").strip()
+        if cat and cat not in seen:
+            seen.add(cat)
+            categories.append(cat)
+    return sorted(categories)

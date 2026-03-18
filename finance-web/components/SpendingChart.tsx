@@ -22,6 +22,7 @@ interface Props {
   data: { category: string; total: number }[]
   selectedCategory?: string | null
   onCategoryClick?: (category: string) => void
+  totalLabel?: string
 }
 
 function LegendColumn({
@@ -58,7 +59,7 @@ function LegendColumn({
   )
 }
 
-export default function SpendingChart({ data, selectedCategory, onCategoryClick }: Props) {
+export default function SpendingChart({ data, selectedCategory, onCategoryClick, totalLabel = 'Total spent' }: Props) {
   const total = data.reduce((sum, d) => sum + d.total, 0)
 
   const itemsWithColor = data.map((d, i) => ({
@@ -106,7 +107,7 @@ export default function SpendingChart({ data, selectedCategory, onCategoryClick 
         )}
       </div>
       <p className="text-center text-sm text-gray-500">
-        Total spent this month:{' '}
+        {totalLabel}:{' '}
         <span className="font-semibold text-gray-800">${fmt(total)}</span>
       </p>
     </div>
