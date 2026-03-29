@@ -2,14 +2,18 @@
 
 import { useTheme } from './ThemeProvider'
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ className }: { className?: string }) {
   const { theme, toggle } = useTheme()
 
   return (
     <button
       onClick={toggle}
       aria-label="Toggle theme"
-      className="p-2 rounded-lg text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+      className={[
+        'rounded-lg p-2 transition-colors',
+        'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white',
+        className,
+      ].filter(Boolean).join(' ')}
     >
       {theme === 'dark' ? (
         // Sun icon — switch to light

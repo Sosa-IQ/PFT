@@ -1,6 +1,7 @@
 'use client'
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { useTheme } from './ThemeProvider'
 
 const COLORS = [
   '#67e7a9',
@@ -59,6 +60,7 @@ function LegendColumn({
 }
 
 export default function SpendingChart({ data, selectedCategory, onCategoryClick, totalLabel = 'Total spent' }: Props) {
+  const { theme } = useTheme()
   const total = data.reduce((sum, d) => sum + d.total, 0)
 
   const itemsWithColor = data.map((d, i) => ({
@@ -101,12 +103,19 @@ export default function SpendingChart({ data, selectedCategory, onCategoryClick,
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#121c31',
-                  border: '1px solid rgba(142, 155, 183, 0.2)',
+                  backgroundColor: theme === 'dark' ? '#121c31' : '#ffffff',
+                  border: theme === 'dark'
+                    ? '1px solid rgba(142, 155, 183, 0.2)'
+                    : '1px solid rgba(220, 225, 236, 0.95)',
                   borderRadius: '14px',
-                  color: '#f4efe2',
+                  color: theme === 'dark' ? '#f4efe2' : '#17202e',
+                  boxShadow: theme === 'dark'
+                    ? '0 16px 40px rgba(5, 11, 25, 0.22)'
+                    : '0 10px 24px rgba(31, 42, 68, 0.08)',
                 }}
-                labelStyle={{ color: '#f4efe2' }}
+                labelStyle={{ color: theme === 'dark' ? '#f4efe2' : '#17202e' }}
+                itemStyle={{ color: theme === 'dark' ? '#f4efe2' : '#17202e' }}
+                cursor={{ fill: theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(23,32,46,0.05)' }}
                 formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]}
               />
             </PieChart>

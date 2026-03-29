@@ -220,7 +220,7 @@ export default function SettingsPage() {
             <button
               onClick={handleSync}
               disabled={syncMutation.isPending}
-              className="text-sm text-accent hover:underline disabled:opacity-50"
+              className="text-sm text-accent-text dark:text-accent hover:underline disabled:opacity-50"
             >
               {syncMutation.isPending ? 'Syncing…' : 'Sync now'}
             </button>
@@ -228,7 +228,7 @@ export default function SettingsPage() {
         </div>
 
         {syncMutation.data && (
-          <div className="rounded-lg border border-accent/25 bg-accent/10 px-4 py-2 text-sm text-accent">
+          <div className="rounded-lg border border-accent/25 bg-accent/10 px-4 py-2 text-sm text-accent-text dark:text-accent">
             Sync complete — {syncMutation.data.added} added, {syncMutation.data.modified} updated,{' '}
             {syncMutation.data.removed} removed.
           </div>

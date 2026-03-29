@@ -164,9 +164,9 @@ function ProgressBar({ spent, planned, isIncome }: { spent: number; planned: num
       <div className="flex items-center justify-between text-[10px] text-cream-muted mb-0.5">
         <span>
           {fmt(spent)} of {fmt(planned)}
-          {over && <span className={`ml-1 ${isIncome ? 'text-accent' : 'text-danger'}`}>({fmt(diff)} over)</span>}
+          {over && <span className={`ml-1 ${isIncome ? 'text-accent-text dark:text-accent' : 'text-danger'}`}>({fmt(diff)} over)</span>}
         </span>
-        <span className={over ? (isIncome ? 'text-accent' : 'text-danger') : ''}>{Math.round(pct)}%</span>
+        <span className={over ? (isIncome ? 'text-accent-text dark:text-accent' : 'text-danger') : ''}>{Math.round(pct)}%</span>
       </div>
       <div className="h-1.5 bg-surface rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -215,7 +215,7 @@ function CategorySelector({ categories, open, onToggle }: {
         onClick={handleToggle}
         className={`text-xs border rounded-full px-2 py-0.5 transition-colors whitespace-nowrap ${
           anyOpen
-            ? 'bg-accent/20 border-accent/50 text-accent'
+            ? 'bg-accent/20 border-accent/50 text-accent-text dark:text-accent'
             : 'text-cream-muted border-surface-border hover:border-cream-muted'
         }`}
       >
@@ -333,7 +333,7 @@ function CategoryTransactionsPanel({
                       {t.date}{t.account_name ? ` · ${t.account_name}` : ''}
                     </p>
                   </div>
-                  <span className={`text-xs font-semibold tabular-nums shrink-0 ${isIncome ? 'text-accent' : 'text-cream'}`}>
+                  <span className={`text-xs font-semibold tabular-nums shrink-0 ${isIncome ? 'text-accent-text dark:text-accent' : 'text-cream'}`}>
                     {fmt(Math.abs(t.amount))}
                   </span>
                 </div>
@@ -346,7 +346,7 @@ function CategoryTransactionsPanel({
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="text-[10px] text-accent disabled:text-cream-muted/30 hover:text-accent-hover"
+                className="text-[10px] text-accent-text dark:text-accent disabled:text-cream-muted/30 hover:text-accent-hover"
               >
                 ← Prev
               </button>
@@ -354,7 +354,7 @@ function CategoryTransactionsPanel({
               <button
                 onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
                 disabled={page === pageCount - 1}
-                className="text-[10px] text-accent disabled:text-cream-muted/30 hover:text-accent-hover"
+                className="text-[10px] text-accent-text dark:text-accent disabled:text-cream-muted/30 hover:text-accent-hover"
               >
                 Next →
               </button>
@@ -413,7 +413,7 @@ function InlineRow({ lineType, allCategories, onSave, onCancel }: InlineRowProps
   }
 
   const borderColor = isIncome ? 'border-accent' : 'border-warning'
-  const textColor = isIncome ? 'text-accent' : 'text-warning'
+  const textColor = isIncome ? 'text-accent-text dark:text-accent' : 'text-warning'
 
   return (
     <div className={`flex items-center gap-2 px-4 py-3 border-l-4 ${borderColor} bg-surface-card`}>
@@ -588,8 +588,8 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
     if (e.key === 'Escape') { setAmountVal(String(displayAmount)); setEditingAmount(false) }
   }
 
-  const nameColor = isIncome ? 'text-accent' : 'text-warning'
-  const amountColor = isIncome ? 'text-accent' : 'text-warning'
+  const nameColor = isIncome ? 'text-accent-text dark:text-accent' : 'text-warning'
+  const amountColor = isIncome ? 'text-accent-text dark:text-accent' : 'text-warning'
   const hasProgress = displayCategories.length > 0 && line.computed_actual != null
 
   return (
@@ -634,7 +634,7 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
               onClick={() => toggleCategoryPanel(displayCategories[0])}
               className={`text-xs border rounded-full px-2 py-0.5 transition-colors whitespace-nowrap capitalize ${
                 openCategories.has(displayCategories[0])
-                  ? 'bg-accent/20 border-accent/50 text-accent'
+                  ? 'bg-accent/20 border-accent/50 text-accent-text dark:text-accent'
                   : 'text-cream-muted border-surface-border hover:border-cream-muted'
               }`}
             >
@@ -878,7 +878,7 @@ export default function BudgetDetailPage() {
     return (
       <div className="text-center py-20 space-y-3">
         <p className="text-cream-muted text-sm">Budget not found.</p>
-        <button onClick={() => router.push('/budgets')} className="text-accent text-sm hover:underline">
+        <button onClick={() => router.push('/budgets')} className="text-accent-text dark:text-accent text-sm hover:underline">
           ← Back
         </button>
       </div>
@@ -1137,7 +1137,7 @@ export default function BudgetDetailPage() {
         <div className="bg-surface-card rounded-2xl border border-surface-border shadow-sm px-4 py-3 grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="text-xs text-cream-muted mb-0.5">Income</p>
-            <p className="text-sm font-semibold text-accent">+{fmt(totalIncome)}</p>
+            <p className="text-sm font-semibold text-accent-text dark:text-accent">+{fmt(totalIncome)}</p>
           </div>
           <div>
             <p className="text-xs text-cream-muted mb-0.5">Expenses</p>
@@ -1145,7 +1145,7 @@ export default function BudgetDetailPage() {
           </div>
           <div>
             <p className="text-xs text-cream-muted mb-0.5">Balance</p>
-            <p className={`text-sm font-bold ${balance >= 0 ? 'text-accent' : 'text-danger'}`}>
+            <p className={`text-sm font-bold ${balance >= 0 ? 'text-accent-text dark:text-accent' : 'text-danger'}`}>
               {balance >= 0 ? '+' : ''}{fmt(balance)}
             </p>
           </div>

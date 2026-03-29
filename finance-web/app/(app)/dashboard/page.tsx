@@ -163,7 +163,7 @@ export default function DashboardPage() {
           color={netWorth >= 0 ? 'text-accent' : 'text-danger'}
         />
         <StatCard label="Total Assets" value={totalAssets} color="text-accent" />
-        <StatCard label="Total Debt" value={totalDebt} color="text-warning" />
+        <StatCard label="Total Debt" value={totalDebt} color="text-warning-display" />
       </div>
 
       {/* Connected Accounts */}
@@ -183,7 +183,7 @@ export default function DashboardPage() {
                         {a.institution_name ?? ''} · {a.account_type}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-accent">${fmt(a.current_balance ?? 0)}</p>
+                    <p className="text-sm font-semibold text-accent-text dark:text-accent">${fmt(a.current_balance ?? 0)}</p>
                   </li>
                 ))}
               </ul>
@@ -292,12 +292,12 @@ export default function DashboardPage() {
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
-              className="text-accent hover:underline disabled:opacity-50"
+              className="text-accent-text dark:text-accent hover:underline disabled:opacity-50"
             >
               {syncMutation.isPending ? 'Syncing…' : 'Resync'}
             </button>
             {' '}or{' '}
-            <Link href="/settings" className="text-accent hover:underline">
+            <Link href="/settings" className="text-accent-text dark:text-accent hover:underline">
               connect another account
             </Link>
             .
@@ -305,7 +305,7 @@ export default function DashboardPage() {
         ) : (
           <p className="text-sm text-cream-muted text-center py-8">
             No spending data for this period.{' '}
-            <Link href="/settings" className="text-accent hover:underline">
+            <Link href="/settings" className="text-accent-text dark:text-accent hover:underline">
               Connect a bank account
             </Link>{' '}
             to get started.
@@ -319,11 +319,11 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-cream">Recent Transactions</h2>
             {selectedCategory && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent-text dark:text-accent">
                 {selectedCategory}
                 <button
                   onClick={() => setSelectedCategory(null)}
-                  className="ml-0.5 hover:text-accent-hover"
+                  className="ml-0.5 hover:text-accent-text dark:hover:text-accent-hover"
                   aria-label="Clear filter"
                 >
                   &times;
@@ -331,7 +331,7 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
-          <Link href="/transactions" className="text-sm text-accent hover:underline">
+          <Link href="/transactions" className="text-sm text-accent-text dark:text-accent hover:underline">
             View all
           </Link>
         </div>

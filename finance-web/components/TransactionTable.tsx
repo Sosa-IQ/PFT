@@ -2,30 +2,30 @@ import type { Transaction } from '@/lib/api'
 
 // Maps category keywords to Tailwind color classes for the tag badge.
 const CATEGORY_COLORS: Record<string, string> = {
-  food: 'bg-[#312548] text-[#cf9bff]',
-  dining: 'bg-[#312548] text-[#cf9bff]',
-  restaurant: 'bg-[#312548] text-[#cf9bff]',
-  groceries: 'bg-[#153729] text-accent',
-  grocery: 'bg-[#153729] text-accent',
-  shopping: 'bg-[#3c2430] text-danger',
-  transport: 'bg-[#22344f] text-[#78d7ff]',
-  travel: 'bg-[#22344f] text-[#78d7ff]',
-  housing: 'bg-[#3d3622] text-warning',
-  rent: 'bg-[#3d3622] text-warning',
-  utilities: 'bg-[#27324a] text-cream-muted',
-  entertainment: 'bg-[#312548] text-[#cf9bff]',
-  health: 'bg-[#3c2430] text-danger',
-  medical: 'bg-[#3c2430] text-danger',
-  income: 'bg-[#153729] text-accent',
+  food: 'bg-[#efe5ff] text-[#7c4fd6] dark:bg-[#312548] dark:text-[#cf9bff]',
+  dining: 'bg-[#efe5ff] text-[#7c4fd6] dark:bg-[#312548] dark:text-[#cf9bff]',
+  restaurant: 'bg-[#efe5ff] text-[#7c4fd6] dark:bg-[#312548] dark:text-[#cf9bff]',
+  groceries: 'bg-[#e3f6ed] text-[#239b73] dark:bg-[#153729] dark:text-accent',
+  grocery: 'bg-[#e3f6ed] text-[#239b73] dark:bg-[#153729] dark:text-accent',
+  shopping: 'bg-[#fde8e7] text-[#c96672] dark:bg-[#3c2430] dark:text-danger',
+  transport: 'bg-[#e2f1ff] text-[#2a7db4] dark:bg-[#22344f] dark:text-[#78d7ff]',
+  travel: 'bg-[#e2f1ff] text-[#2a7db4] dark:bg-[#22344f] dark:text-[#78d7ff]',
+  housing: 'bg-[#fbf2d7] text-[#b68a22] dark:bg-[#3d3622] dark:text-warning',
+  rent: 'bg-[#fbf2d7] text-[#b68a22] dark:bg-[#3d3622] dark:text-warning',
+  utilities: 'bg-[#e8edf6] text-[#697792] dark:bg-[#27324a] dark:text-cream-muted',
+  entertainment: 'bg-[#efe5ff] text-[#7c4fd6] dark:bg-[#312548] dark:text-[#cf9bff]',
+  health: 'bg-[#fde8e7] text-[#c96672] dark:bg-[#3c2430] dark:text-danger',
+  medical: 'bg-[#fde8e7] text-[#c96672] dark:bg-[#3c2430] dark:text-danger',
+  income: 'bg-[#e3f6ed] text-[#239b73] dark:bg-[#153729] dark:text-accent',
 }
 
 function tagStyle(cat: string | null): string {
-  if (!cat) return 'bg-[#27324a] text-cream-muted'
+  if (!cat) return 'bg-[#e8edf6] text-[#697792] dark:bg-[#27324a] dark:text-cream-muted'
   const key = cat.toLowerCase()
   for (const k of Object.keys(CATEGORY_COLORS)) {
     if (key.includes(k)) return CATEGORY_COLORS[k]
   }
-  return 'bg-[#27324a] text-cream-muted'
+  return 'bg-[#e8edf6] text-[#697792] dark:bg-[#27324a] dark:text-cream-muted'
 }
 
 interface Props {
@@ -66,7 +66,7 @@ export default function TransactionTable({ transactions }: Props) {
               <td className="px-4 py-3 text-cream">
                 <span className="font-medium">{t.merchant_name ?? '—'}</span>
                 {t.is_recurring && (
-                  <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
+                  <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent-text dark:text-accent">
                     recurring
                   </span>
                 )}
@@ -90,7 +90,7 @@ export default function TransactionTable({ transactions }: Props) {
               </td>
               <td
                 className={`px-4 py-3 text-right font-medium tabular-nums ${
-                  t.amount < 0 ? 'text-accent' : 'text-warning'
+                  t.amount < 0 ? 'text-accent-text dark:text-accent' : 'text-warning'
                 }`}
               >
                 {t.amount < 0 ? '+' : ''}$

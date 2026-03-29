@@ -55,7 +55,7 @@ function BudgetCard({ budget, onClick, onDelete, onEditName, onEditDate }: {
       >
         <span className="font-medium text-cream">{budget.name}</span>
         <div className="flex items-center gap-3">
-          <span className={`text-base font-semibold ${positive ? 'text-accent' : 'text-warning'}`}>
+          <span className={`text-base font-semibold ${positive ? 'text-accent-text dark:text-accent' : 'text-warning'}`}>
             {formatCurrency(balance)}
           </span>
           <span className="text-cream-muted/50 text-lg">›</span>

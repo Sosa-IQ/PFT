@@ -14,20 +14,32 @@ export function useTheme() {
 }
 
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark')
+  const [theme, setTheme] = useState<Theme>('light')
 
-  // On mount, read persisted preference or system preference
   useEffect(() => {
     const stored = localStorage.getItem('theme') as Theme | null
-    if (stored === 'dark' || stored === 'light') {
-      setTheme(stored)
-      document.documentElement.classList.toggle('dark', stored === 'dark')
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      const resolved: Theme = prefersDark ? 'dark' : 'light'
-      setTheme(resolved)
-      document.documentElement.classList.toggle('dark', prefersDark)
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+
+    const applyTheme = (next: Theme) => {
+      setTheme(next)
+      document.documentElement.classList.toggle('dark', next === 'dark')
     }
+
+    if (stored === 'dark' || stored === 'light') {
+      applyTheme(stored)
+      return
+    }
+
+    applyTheme(media.matches ? 'dark' : 'light')
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (!localStorage.getItem('theme')) {
+        applyTheme(event.matches ? 'dark' : 'light')
+      }
+    }
+
+    media.addEventListener('change', handleChange)
+    return () => media.removeEventListener('change', handleChange)
   }, [])
 
   function toggle() {

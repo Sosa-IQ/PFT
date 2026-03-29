@@ -122,7 +122,7 @@ export default function LiabilitiesPage() {
           {totalDebt > 0 && (
             <p className="text-sm text-cream-muted mt-0.5">
               Total debt:{' '}
-              <span className="font-semibold text-warning">
+              <span className="font-semibold text-warning-display">
                 ${totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </p>
@@ -147,7 +147,7 @@ export default function LiabilitiesPage() {
         <section>
           <div className="mb-3 flex items-center gap-2">
             <h2 className="text-sm font-semibold text-cream">From Bank (Plaid)</h2>
-            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">synced</span>
+            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent-text dark:text-accent">synced</span>
           </div>
           <div className="app-panel overflow-hidden rounded-2xl">
             <table className="w-full text-sm">
@@ -348,7 +348,7 @@ export default function LiabilitiesPage() {
                         <div className="flex gap-3 justify-end">
                           <button
                             onClick={() => openEdit(l)}
-                            className="text-xs text-accent hover:underline"
+                            className="text-xs text-accent-text dark:text-accent hover:underline"
                           >
                             Edit
                           </button>

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import ThemeToggle from '@/components/ThemeToggle'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: '✦' },
@@ -26,8 +27,8 @@ export default function NavSidebar({ session }: { session: Session | null }) {
 
   return (
     <nav className="sticky top-0 flex h-screen w-72 shrink-0 flex-col border-r border-surface-border/80 bg-surface-sidebar/95 px-4 py-5 backdrop-blur-xl">
-      <div className="mb-8 flex items-center gap-3 px-2">
-        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-[#1f2a42] ring-1 ring-white/5">
+      <div className="mb-8 flex items-start justify-between gap-3 px-2">
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-surface-raised ring-1 ring-surface-border">
           <Image
             src="/BudgitBuddy.png"
             alt="Budgit Buddy mascot"
@@ -38,8 +39,9 @@ export default function NavSidebar({ session }: { session: Session | null }) {
         </div>
         <div className="leading-none">
           <div className="text-[2rem] font-bold tracking-tight text-accent">Budgit</div>
-          <div className="-mt-1 text-[2rem] font-bold tracking-tight text-warning">Buddy</div>
+          <div className="-mt-1 text-[2rem] font-bold tracking-tight text-warning-display">Buddy</div>
         </div>
+        <ThemeToggle className="border border-surface-border bg-surface-card text-cream-muted hover:bg-surface-hover hover:text-cream dark:text-cream-muted dark:hover:bg-surface-hover dark:hover:text-cream" />
       </div>
 
       <ul className="flex-1 space-y-1.5">
@@ -51,7 +53,7 @@ export default function NavSidebar({ session }: { session: Session | null }) {
                 href={href}
                 className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-base font-medium transition-all ${
                   active
-                    ? 'bg-gradient-to-r from-accent to-[#6de0bf] text-accent-contrast shadow-[0_10px_30px_rgba(103,231,169,0.2)]'
+                    ? 'bg-gradient-to-r from-accent to-accent-hover text-accent-contrast shadow-[0_10px_30px_rgba(var(--app-accent),0.2)]'
                     : 'text-cream-muted hover:bg-surface-hover hover:text-cream'
                 }`}
               >

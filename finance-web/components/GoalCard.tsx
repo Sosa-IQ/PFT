@@ -26,7 +26,7 @@ export default function GoalCard({
         <span className="font-medium text-cream">{name}</span>
         <div className="flex gap-3">
           {onEdit && (
-            <button onClick={onEdit} className="text-xs text-accent hover:underline">
+            <button onClick={onEdit} className="text-xs text-accent-text dark:text-accent hover:underline">
               Edit
             </button>
           )}
@@ -58,7 +58,7 @@ export default function GoalCard({
 
       {/* Footer */}
       <div className="flex justify-between items-center">
-        <p className="text-xs font-medium text-accent">{pct.toFixed(0)}% complete</p>
+        <p className="text-xs font-medium text-accent-text dark:text-accent">{pct.toFixed(0)}% complete</p>
         {pct < 100 && (
           <p className="text-xs text-cream-muted">
             ${remaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to go
