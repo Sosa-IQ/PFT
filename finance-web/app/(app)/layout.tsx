@@ -39,17 +39,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Loading…</p>
+      <div className="app-shell min-h-screen flex items-center justify-center">
+        <p className="text-cream-muted text-sm">Loading…</p>
       </div>
     )
   }
 
   return (
     <AuthTokenContext.Provider value={session?.access_token ?? null}>
-      <div className="flex min-h-screen">
+      <div className="app-shell flex min-h-screen text-cream">
         <NavSidebar session={session} />
-        <main className="flex-1 p-6 overflow-y-auto min-h-screen">{children}</main>
+        <main className="flex-1 min-h-screen overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+          {children}
+        </main>
       </div>
     </AuthTokenContext.Provider>
   )

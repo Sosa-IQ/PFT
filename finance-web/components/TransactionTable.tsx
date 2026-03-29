@@ -2,30 +2,30 @@ import type { Transaction } from '@/lib/api'
 
 // Maps category keywords to Tailwind color classes for the tag badge.
 const CATEGORY_COLORS: Record<string, string> = {
-  food: 'bg-orange-100 text-orange-700',
-  dining: 'bg-orange-100 text-orange-700',
-  restaurant: 'bg-orange-100 text-orange-700',
-  groceries: 'bg-green-100 text-green-700',
-  grocery: 'bg-green-100 text-green-700',
-  shopping: 'bg-blue-100 text-blue-700',
-  transport: 'bg-purple-100 text-purple-700',
-  travel: 'bg-purple-100 text-purple-700',
-  housing: 'bg-yellow-100 text-yellow-700',
-  rent: 'bg-yellow-100 text-yellow-700',
-  utilities: 'bg-gray-100 text-gray-700',
-  entertainment: 'bg-pink-100 text-pink-700',
-  health: 'bg-red-100 text-red-700',
-  medical: 'bg-red-100 text-red-700',
-  income: 'bg-emerald-100 text-emerald-700',
+  food: 'bg-[#312548] text-[#cf9bff]',
+  dining: 'bg-[#312548] text-[#cf9bff]',
+  restaurant: 'bg-[#312548] text-[#cf9bff]',
+  groceries: 'bg-[#153729] text-accent',
+  grocery: 'bg-[#153729] text-accent',
+  shopping: 'bg-[#3c2430] text-danger',
+  transport: 'bg-[#22344f] text-[#78d7ff]',
+  travel: 'bg-[#22344f] text-[#78d7ff]',
+  housing: 'bg-[#3d3622] text-warning',
+  rent: 'bg-[#3d3622] text-warning',
+  utilities: 'bg-[#27324a] text-cream-muted',
+  entertainment: 'bg-[#312548] text-[#cf9bff]',
+  health: 'bg-[#3c2430] text-danger',
+  medical: 'bg-[#3c2430] text-danger',
+  income: 'bg-[#153729] text-accent',
 }
 
 function tagStyle(cat: string | null): string {
-  if (!cat) return 'bg-gray-100 text-gray-500'
+  if (!cat) return 'bg-[#27324a] text-cream-muted'
   const key = cat.toLowerCase()
   for (const k of Object.keys(CATEGORY_COLORS)) {
     if (key.includes(k)) return CATEGORY_COLORS[k]
   }
-  return 'bg-slate-100 text-slate-600'
+  return 'bg-[#27324a] text-cream-muted'
 }
 
 interface Props {
@@ -35,46 +35,46 @@ interface Props {
 export default function TransactionTable({ transactions }: Props) {
   if (transactions.length === 0) {
     return (
-      <p className="text-sm text-gray-400 py-10 text-center">No transactions found.</p>
+      <p className="text-sm text-cream-muted py-10 text-center">No transactions found.</p>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200">
+    <div className="app-panel overflow-x-auto rounded-2xl">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b border-gray-200">
+        <thead className="border-b border-surface-border bg-surface/80">
           <tr>
-            <th className="text-left px-4 py-3 font-medium text-gray-500">Date</th>
-            <th className="text-left px-4 py-3 font-medium text-gray-500">Merchant</th>
-            <th className="text-left px-4 py-3 font-medium text-gray-500">Account</th>
-            <th className="text-left px-4 py-3 font-medium text-gray-500">Category</th>
-            <th className="text-right px-4 py-3 font-medium text-gray-500">Amount</th>
+            <th className="text-left px-4 py-3 font-medium text-cream-muted">Date</th>
+            <th className="text-left px-4 py-3 font-medium text-cream-muted">Merchant</th>
+            <th className="text-left px-4 py-3 font-medium text-cream-muted">Account</th>
+            <th className="text-left px-4 py-3 font-medium text-cream-muted">Category</th>
+            <th className="text-right px-4 py-3 font-medium text-cream-muted">Amount</th>
           </tr>
         </thead>
         <tbody>
           {transactions.map((t) => (
             <tr
               key={t.id}
-              className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
+              className="border-b border-surface-border last:border-0 hover:bg-surface-hover transition-colors"
             >
-              <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+              <td className="px-4 py-3 text-cream-muted whitespace-nowrap">
                 {new Date(t.date + 'T00:00:00').toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
                 })}
               </td>
-              <td className="px-4 py-3 text-gray-800">
+              <td className="px-4 py-3 text-cream">
                 <span className="font-medium">{t.merchant_name ?? '—'}</span>
                 {t.is_recurring && (
-                  <span className="ml-2 text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                  <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
                     recurring
                   </span>
                 )}
                 {t.note && (
-                  <span className="ml-2 text-xs text-gray-400 italic">{t.note}</span>
+                  <span className="ml-2 text-xs text-cream-muted italic">{t.note}</span>
                 )}
               </td>
-              <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+              <td className="px-4 py-3 text-cream-muted text-xs whitespace-nowrap">
                 {t.account_name ?? '—'}
               </td>
               <td className="px-4 py-3">
@@ -85,12 +85,12 @@ export default function TransactionTable({ transactions }: Props) {
                     {t.category}
                   </span>
                 ) : (
-                  <span className="text-gray-300 text-xs">uncategorized</span>
+                  <span className="text-cream-muted text-xs">uncategorized</span>
                 )}
               </td>
               <td
                 className={`px-4 py-3 text-right font-medium tabular-nums ${
-                  t.amount < 0 ? 'text-green-600' : 'text-gray-800'
+                  t.amount < 0 ? 'text-accent' : 'text-warning'
                 }`}
               >
                 {t.amount < 0 ? '+' : ''}$

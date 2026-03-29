@@ -2,16 +2,15 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
-// 8 distinct colors for spending categories.
 const COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#06b6d4', // cyan
-  '#f97316', // orange
-  '#ec4899', // pink
+  '#67e7a9',
+  '#f1db8f',
+  '#8ea2ff',
+  '#ff8b88',
+  '#78d7ff',
+  '#cf9bff',
+  '#f6b56d',
+  '#a5efcb',
 ]
 
 function fmt(n: number) {
@@ -49,8 +48,8 @@ function LegendColumn({
               style={{ backgroundColor: item.color }}
             />
             <div className="min-w-0">
-              <p className="text-xs text-gray-600 truncate">{item.category}</p>
-              <p className="text-xs font-semibold text-gray-800">${fmt(item.total)}</p>
+              <p className="text-xs text-cream-muted truncate">{item.category}</p>
+              <p className="text-xs font-semibold text-cream">${fmt(item.total)}</p>
             </div>
           </div>
         )
@@ -86,9 +85,11 @@ export default function SpendingChart({ data, selectedCategory, onCategoryClick,
                 cy="50%"
                 innerRadius={55}
                 outerRadius={85}
-                paddingAngle={2}
+                paddingAngle={3}
                 onClick={(_, index) => onCategoryClick?.(data[index].category)}
                 className="cursor-pointer"
+                stroke="rgba(9, 17, 29, 0.55)"
+                strokeWidth={2}
               >
                 {data.map((d, i) => (
                   <Cell
@@ -98,7 +99,16 @@ export default function SpendingChart({ data, selectedCategory, onCategoryClick,
                   />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#121c31',
+                  border: '1px solid rgba(142, 155, 183, 0.2)',
+                  borderRadius: '14px',
+                  color: '#f4efe2',
+                }}
+                labelStyle={{ color: '#f4efe2' }}
+                formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -106,9 +116,9 @@ export default function SpendingChart({ data, selectedCategory, onCategoryClick,
           <LegendColumn items={rightItems} selectedCategory={selectedCategory} onCategoryClick={onCategoryClick} />
         )}
       </div>
-      <p className="text-center text-sm text-gray-500">
+      <p className="text-center text-sm text-cream-muted">
         {totalLabel}:{' '}
-        <span className="font-semibold text-gray-800">${fmt(total)}</span>
+        <span className="font-semibold text-cream">${fmt(total)}</span>
       </p>
     </div>
   )

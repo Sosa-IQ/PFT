@@ -48,46 +48,46 @@ function BudgetCard({ budget, onClick, onDelete, onEditName, onEditDate }: {
   }, [menuOpen])
 
   return (
-    <div className="relative flex items-center bg-white rounded-2xl shadow-sm border border-gray-100 overflow-visible">
+    <div className="app-panel relative flex items-center overflow-visible rounded-2xl">
       <button
         onClick={onClick}
         className="flex-1 flex items-center justify-between px-5 py-4 text-left"
       >
-        <span className="font-medium text-gray-800">{budget.name}</span>
+        <span className="font-medium text-cream">{budget.name}</span>
         <div className="flex items-center gap-3">
-          <span className={`font-semibold text-base ${positive ? 'text-green-600' : 'text-orange-500'}`}>
+          <span className={`text-base font-semibold ${positive ? 'text-accent' : 'text-warning'}`}>
             {formatCurrency(balance)}
           </span>
-          <span className="text-gray-300 text-lg">›</span>
+          <span className="text-cream-muted/50 text-lg">›</span>
         </div>
       </button>
       {/* Divider + kebab */}
-      <div className="w-px h-10 bg-gray-100" />
+      <div className="w-px h-10 bg-surface-border" />
       <div ref={menuRef} className="relative">
         <button
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
-          className="px-4 py-4 text-gray-400 hover:text-gray-600 transition-colors text-lg"
+          className="px-4 py-4 text-cream-muted hover:text-cream transition-colors text-lg"
           title="Options"
         >
           ⋮
         </button>
         {menuOpen && (
-          <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+          <div className="app-panel absolute right-0 top-full z-50 mt-1 w-40 rounded-xl py-1 shadow-card">
             <button
               onClick={() => { setMenuOpen(false); onEditName() }}
-              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="w-full text-left px-4 py-2.5 text-sm text-cream hover:bg-surface-hover transition-colors"
             >
               Edit Name
             </button>
             <button
               onClick={() => { setMenuOpen(false); onEditDate() }}
-              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="w-full text-left px-4 py-2.5 text-sm text-cream hover:bg-surface-hover transition-colors"
             >
               Edit Date
             </button>
             <button
               onClick={() => { setMenuOpen(false); onDelete() }}
-              className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+              className="w-full text-left px-4 py-2.5 text-sm text-danger transition-colors hover:bg-danger/10"
             >
               Delete
             </button>
@@ -110,9 +110,9 @@ function EditNameModal({ budget, onClose, onSave }: {
   const [name, setName] = useState(budget.name)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30">
-      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl p-6 space-y-5">
-        <h2 className="text-lg font-semibold text-gray-800">Edit Name</h2>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+      <div className="app-panel w-full space-y-5 rounded-t-3xl p-6 shadow-app sm:max-w-md sm:rounded-2xl">
+        <h2 className="text-lg font-semibold text-cream">Edit Name</h2>
         <form onSubmit={(e) => { e.preventDefault(); if (name.trim()) onSave(name.trim()) }} className="space-y-4">
           <input
             type="text"
@@ -120,15 +120,15 @@ function EditNameModal({ budget, onClose, onSave }: {
             onChange={(e) => setName(e.target.value)}
             autoFocus
             required
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-surface-border rounded-xl px-4 py-3 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
           />
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              className="flex-1 border border-surface-border rounded-xl py-3 text-sm font-medium text-cream-muted hover:bg-surface-hover transition-colors">
               Cancel
             </button>
             <button type="submit"
-              className="flex-1 bg-blue-500 text-white rounded-xl py-3 text-sm font-medium hover:bg-blue-600 transition-colors">
+              className="flex-1 rounded-xl bg-accent py-3 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover">
               Save
             </button>
           </div>
@@ -165,12 +165,12 @@ function EditDateModal({ budget, onClose, onSave }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30">
-      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl p-6 space-y-5">
-        <h2 className="text-lg font-semibold text-gray-800">Edit Date Range</h2>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+      <div className="app-panel w-full space-y-5 rounded-t-3xl p-6 shadow-app sm:max-w-md sm:rounded-2xl">
+        <h2 className="text-lg font-semibold text-cream">Edit Date Range</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Period</p>
+            <p className="text-xs font-medium text-cream-muted mb-2 uppercase tracking-wide">Period</p>
             <div className="grid grid-cols-4 gap-1.5">
               {(['monthly', 'weekly', 'biweekly', 'custom'] as DateRangeType[]).map((r) => (
                 <button
@@ -179,8 +179,8 @@ function EditDateModal({ budget, onClose, onSave }: {
                   onClick={() => setDateRangeType(r)}
                   className={`rounded-xl border px-2 py-2 text-xs font-medium transition-colors ${
                     dateRangeType === r
-                      ? 'bg-blue-500 border-blue-500 text-white'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      ? 'bg-accent border-accent text-accent-contrast'
+                      : 'border-surface-border text-cream-muted hover:border-cream-muted'
                   }`}
                 >
                   {DATE_RANGE_LABELS[r]}
@@ -190,26 +190,26 @@ function EditDateModal({ budget, onClose, onSave }: {
             {dateRangeType === 'custom' && (
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Start</p>
+                  <p className="text-xs text-cream-muted mb-1">Start</p>
                   <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-surface-border rounded-xl px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">End</p>
+                  <p className="text-xs text-cream-muted mb-1">End</p>
                   <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-surface-border rounded-xl px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
               </div>
             )}
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              className="flex-1 border border-surface-border rounded-xl py-3 text-sm font-medium text-cream-muted hover:bg-surface-hover transition-colors">
               Cancel
             </button>
             <button type="submit"
-              className="flex-1 bg-blue-500 text-white rounded-xl py-3 text-sm font-medium hover:bg-blue-600 transition-colors">
+              className="flex-1 rounded-xl bg-accent py-3 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover">
               Save
             </button>
           </div>
@@ -255,9 +255,9 @@ function NewBudgetModal({ onClose, onCreate }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30">
-      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl p-6 space-y-5">
-        <h2 className="text-lg font-semibold text-gray-800">New Budget</h2>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50">
+      <div className="app-panel w-full space-y-5 rounded-t-3xl p-6 shadow-app sm:max-w-md sm:rounded-2xl">
+        <h2 className="text-lg font-semibold text-cream">New Budget</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name */}
@@ -268,12 +268,12 @@ function NewBudgetModal({ onClose, onCreate }: {
             required
             autoFocus
             placeholder="Budget name (e.g. August)"
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-surface-border rounded-xl px-4 py-3 text-sm bg-surface text-cream placeholder:text-cream-muted focus:outline-none focus:ring-2 focus:ring-accent"
           />
 
           {/* Date range */}
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Period</p>
+            <p className="text-xs font-medium text-cream-muted mb-2 uppercase tracking-wide">Period</p>
             <div className="grid grid-cols-4 gap-1.5">
               {(['monthly', 'weekly', 'biweekly', 'custom'] as DateRangeType[]).map((r) => (
                 <button
@@ -282,8 +282,8 @@ function NewBudgetModal({ onClose, onCreate }: {
                   onClick={() => setDateRangeType(r)}
                   className={`rounded-xl border px-2 py-2 text-xs font-medium transition-colors ${
                     dateRangeType === r
-                      ? 'bg-blue-500 border-blue-500 text-white'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      ? 'bg-accent border-accent text-accent-contrast'
+                      : 'border-surface-border text-cream-muted hover:border-cream-muted'
                   }`}
                 >
                   {DATE_RANGE_LABELS[r]}
@@ -294,28 +294,28 @@ function NewBudgetModal({ onClose, onCreate }: {
             {dateRangeType === 'custom' && (
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Start</p>
+                  <p className="text-xs text-cream-muted mb-1">Start</p>
                   <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-surface-border rounded-xl px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">End</p>
+                  <p className="text-xs text-cream-muted mb-1">End</p>
                   <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-surface-border rounded-xl px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent" />
                 </div>
               </div>
             )}
           </div>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              className="flex-1 border border-surface-border rounded-xl py-3 text-sm font-medium text-cream-muted hover:bg-surface-hover transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={createMut.isPending}
-              className="flex-1 bg-blue-500 text-white rounded-xl py-3 text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors">
+              className="flex-1 rounded-xl bg-accent py-3 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover disabled:opacity-50">
               {createMut.isPending ? 'Creating…' : 'Create'}
             </button>
           </div>
@@ -366,21 +366,21 @@ export default function BudgetsPage() {
     }
   }
 
-  if (isLoading) return <p className="text-gray-400 text-sm text-center py-20">Loading…</p>
+  if (isLoading) return <p className="text-cream-muted text-sm text-center py-20">Loading…</p>
 
   return (
     <div className="max-w-lg mx-auto flex flex-col min-h-[calc(100vh-4rem)]">
-      <h1 className="text-2xl font-semibold mb-5">Budgets</h1>
+      <h1 className="text-2xl font-semibold mb-5 text-cream">Budgets</h1>
 
       {(error || actionError) && (
-        <p className="text-sm text-red-500 mb-3">
+        <p className="mb-3 text-sm text-danger">
           {error instanceof Error ? error.message : actionError}
         </p>
       )}
 
       <div className="flex-1 space-y-3">
         {budgets.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-16">
+          <p className="text-cream-muted text-sm text-center py-16">
             No budgets yet. Tap Add Budget to create one.
           </p>
         ) : (
@@ -398,10 +398,10 @@ export default function BudgetsPage() {
       </div>
 
       {/* Sticky add button */}
-      <div className="sticky bottom-0 pb-4 pt-3 bg-gray-50">
+      <div className="sticky bottom-0 bg-surface/95 pb-4 pt-3 backdrop-blur">
         <button
           onClick={() => setShowModal(true)}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-2xl py-4 text-base font-semibold shadow-md transition-colors"
+          className="w-full rounded-2xl bg-accent py-4 text-base font-semibold text-accent-contrast shadow-card transition-colors hover:bg-accent-hover"
         >
           Add Budget
         </button>

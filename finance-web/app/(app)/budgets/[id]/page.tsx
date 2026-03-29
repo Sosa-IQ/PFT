@@ -109,7 +109,7 @@ function CategoryPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-xs text-gray-400 border border-gray-200 rounded-full px-2 py-0.5 hover:border-gray-300 truncate max-w-[9rem]"
+        className="text-xs text-cream-muted border border-surface-border rounded-full px-2 py-0.5 hover:border-surface-border truncate max-w-[9rem]"
       >
         {selected.length === 0
           ? 'link categories'
@@ -118,20 +118,20 @@ function CategoryPicker({
             : `${selected.length} categories`}
       </button>
       {open && (
-        <div className="absolute left-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-[12rem] w-max max-h-52 overflow-y-auto">
+        <div className="absolute left-0 top-7 z-20 bg-surface-card border border-surface-border rounded-xl shadow-lg py-1 min-w-[12rem] w-max max-h-52 overflow-y-auto">
           {options.length === 0 && (
-            <p className="text-xs text-gray-400 px-3 py-2">No categories found</p>
+            <p className="text-xs text-cream-muted px-3 py-2">No categories found</p>
           )}
           {options.map((c) => (
             <button
               key={c}
-              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 capitalize flex items-center gap-2 whitespace-nowrap"
+              className="w-full text-left px-3 py-1.5 text-xs text-cream hover:bg-surface-hover capitalize flex items-center gap-2 whitespace-nowrap"
               onClick={() => toggle(c)}
             >
               <span className={`w-3.5 h-3.5 shrink-0 rounded border flex items-center justify-center text-[10px] ${
                 isSelected(c)
-                  ? 'bg-blue-500 border-blue-500 text-white'
-                  : 'border-gray-300'
+                  ? 'bg-accent border-accent text-accent-contrast'
+                  : 'border-surface-border'
               }`}>
                 {isSelected(c) && '✓'}
               </span>
@@ -154,21 +154,21 @@ function ProgressBar({ spent, planned, isIncome }: { spent: number; planned: num
   const diff = over ? spent - planned : 0
 
   const barColor = isIncome
-    ? 'bg-green-400'
+    ? 'bg-accent'
     : over
-      ? 'bg-red-400'
-      : 'bg-blue-400'
+      ? 'bg-danger'
+      : 'bg-warning'
 
   return (
     <div className="w-full mt-1">
-      <div className="flex items-center justify-between text-[10px] text-gray-400 mb-0.5">
+      <div className="flex items-center justify-between text-[10px] text-cream-muted mb-0.5">
         <span>
           {fmt(spent)} of {fmt(planned)}
-          {over && <span className={`ml-1 ${isIncome ? 'text-green-500' : 'text-red-400'}`}>({fmt(diff)} over)</span>}
+          {over && <span className={`ml-1 ${isIncome ? 'text-accent' : 'text-danger'}`}>({fmt(diff)} over)</span>}
         </span>
-        <span className={over ? (isIncome ? 'text-green-500' : 'text-red-400') : ''}>{Math.round(pct)}%</span>
+        <span className={over ? (isIncome ? 'text-accent' : 'text-danger') : ''}>{Math.round(pct)}%</span>
       </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-surface rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
     </div>
@@ -215,22 +215,22 @@ function CategorySelector({ categories, open, onToggle }: {
         onClick={handleToggle}
         className={`text-xs border rounded-full px-2 py-0.5 transition-colors whitespace-nowrap ${
           anyOpen
-            ? 'bg-blue-50 border-blue-300 text-blue-600'
-            : 'text-gray-500 border-gray-200 hover:border-gray-400'
+            ? 'bg-accent/20 border-accent/50 text-accent'
+            : 'text-cream-muted border-surface-border hover:border-cream-muted'
         }`}
       >
         {categories.length} categories {showList ? '▴' : '▾'}
       </button>
       {showList && (
-        <div className={`absolute left-0 ${dropUp ? 'bottom-7' : 'top-7'} z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-max min-w-[10rem]`}>
+        <div className={`absolute left-0 ${dropUp ? 'bottom-7' : 'top-7'} z-20 bg-surface-card border border-surface-border rounded-xl shadow-lg py-1 w-max min-w-[10rem]`}>
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => onToggle(cat)}
-              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 capitalize flex items-center gap-2 whitespace-nowrap"
+              className="w-full text-left px-3 py-1.5 text-xs text-cream hover:bg-surface-hover capitalize flex items-center gap-2 whitespace-nowrap"
             >
               <span className={`w-3 h-3 rounded-full border transition-colors ${
-                open.has(cat) ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+                open.has(cat) ? 'bg-accent border-accent' : 'border-surface-border'
               }`} />
               {cat}
             </button>
@@ -282,25 +282,25 @@ function CategoryTransactionsPanel({
   const txns = allTxns.slice(page * TXNS_PAGE_SIZE, (page + 1) * TXNS_PAGE_SIZE)
 
   return (
-    <div className="border-t border-gray-100 bg-gray-50/60">
+    <div className="border-t border-surface-border bg-surface/60">
       <div className="px-4 py-1.5 flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+        <span className="text-[10px] font-semibold text-cream-muted uppercase tracking-wide">
           {category}
         </span>
         {!isLoading && (
-          <span className="text-[10px] text-gray-400">
+          <span className="text-[10px] text-cream-muted">
             {allTxns.length} transaction{allTxns.length !== 1 ? 's' : ''}
           </span>
         )}
       </div>
 
       {isLoading ? (
-        <p className="px-4 pb-3 text-xs text-gray-400">Loading…</p>
+        <p className="px-4 pb-3 text-xs text-cream-muted">Loading…</p>
       ) : allTxns.length === 0 ? (
-        <p className="px-4 pb-3 text-xs text-gray-400">No transactions in this period.</p>
+        <p className="px-4 pb-3 text-xs text-cream-muted">No transactions in this period.</p>
       ) : (
         <>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-surface-border">
             {txns.map((t) => {
               const excluded = excludedIds.has(t.id)
               return (
@@ -315,8 +315,8 @@ function CategoryTransactionsPanel({
                     title={excluded ? 'Click to track this transaction' : 'Click to stop tracking'}
                     className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
                       excluded
-                        ? 'border-gray-300 bg-white'
-                        : 'border-blue-400 bg-blue-400'
+                        ? 'border-surface-border bg-surface-card'
+                        : 'border-accent bg-accent'
                     }`}
                   >
                     {!excluded && (
@@ -326,14 +326,14 @@ function CategoryTransactionsPanel({
                     )}
                   </button>
                   <div className={`flex-1 min-w-0 ${excluded ? 'line-through' : ''}`}>
-                    <p className="text-xs font-medium text-gray-700 truncate">
+                    <p className="text-xs font-medium text-cream truncate">
                       {t.merchant_name ?? t.category ?? '—'}
                     </p>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-[10px] text-cream-muted">
                       {t.date}{t.account_name ? ` · ${t.account_name}` : ''}
                     </p>
                   </div>
-                  <span className={`text-xs font-semibold tabular-nums shrink-0 ${isIncome ? 'text-green-600' : 'text-gray-700'}`}>
+                  <span className={`text-xs font-semibold tabular-nums shrink-0 ${isIncome ? 'text-accent' : 'text-cream'}`}>
                     {fmt(Math.abs(t.amount))}
                   </span>
                 </div>
@@ -342,19 +342,19 @@ function CategoryTransactionsPanel({
           </div>
 
           {pageCount > 1 && (
-            <div className="flex items-center justify-between px-4 py-2 border-t border-gray-100">
+            <div className="flex items-center justify-between px-4 py-2 border-t border-surface-border">
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="text-[10px] text-blue-500 disabled:text-gray-300 hover:text-blue-600"
+                className="text-[10px] text-accent disabled:text-cream-muted/30 hover:text-accent-hover"
               >
                 ← Prev
               </button>
-              <span className="text-[10px] text-gray-400">{page + 1} / {pageCount}</span>
+              <span className="text-[10px] text-cream-muted">{page + 1} / {pageCount}</span>
               <button
                 onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
                 disabled={page === pageCount - 1}
-                className="text-[10px] text-blue-500 disabled:text-gray-300 hover:text-blue-600"
+                className="text-[10px] text-accent disabled:text-cream-muted/30 hover:text-accent-hover"
               >
                 Next →
               </button>
@@ -412,11 +412,11 @@ function InlineRow({ lineType, allCategories, onSave, onCancel }: InlineRowProps
     if (e.key === 'Escape') onCancel()
   }
 
-  const borderColor = isIncome ? 'border-green-400' : 'border-red-400'
-  const textColor = isIncome ? 'text-green-600' : 'text-red-500'
+  const borderColor = isIncome ? 'border-accent' : 'border-warning'
+  const textColor = isIncome ? 'text-accent' : 'text-warning'
 
   return (
-    <div className={`flex items-center gap-2 px-4 py-3 border-l-4 ${borderColor} bg-white`}>
+    <div className={`flex items-center gap-2 px-4 py-3 border-l-4 ${borderColor} bg-surface-card`}>
       <input
         ref={nameRef}
         type="text"
@@ -424,7 +424,7 @@ function InlineRow({ lineType, allCategories, onSave, onCancel }: InlineRowProps
         onChange={(e) => setName(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={isIncome ? 'Income name' : 'Expense name'}
-        className={`flex-1 text-sm font-medium bg-transparent border-b border-gray-200 outline-none pb-0.5 ${textColor} placeholder:text-gray-300`}
+        className={`flex-1 text-sm font-medium bg-transparent border-b border-surface-border outline-none pb-0.5 ${textColor} placeholder:text-cream-muted/50`}
       />
 
       <CategoryPicker selected={categories} options={allCategories} onChange={setCategories} />
@@ -437,18 +437,18 @@ function InlineRow({ lineType, allCategories, onSave, onCancel }: InlineRowProps
         min="0"
         step="0.01"
         placeholder="0.00"
-        className={`w-24 text-right text-sm font-semibold bg-transparent border-b border-gray-200 outline-none pb-0.5 ${textColor} placeholder:text-gray-300`}
+        className={`w-24 text-right text-sm font-semibold bg-transparent border-b border-surface-border outline-none pb-0.5 ${textColor} placeholder:text-cream-muted/50`}
       />
 
       <button
         onClick={handleSave}
         disabled={saving || !name.trim()}
-        className="text-green-500 hover:text-green-600 disabled:opacity-30 font-bold text-lg leading-none"
+        className="text-accent hover:text-accent-hover disabled:opacity-30 font-bold text-lg leading-none"
         title="Save"
       >
         ✓
       </button>
-      <button onClick={onCancel} className="text-gray-300 hover:text-gray-500 font-bold text-lg leading-none" title="Cancel">
+      <button onClick={onCancel} className="text-cream-muted/50 hover:text-cream-muted font-bold text-lg leading-none" title="Cancel">
         ✕
       </button>
     </div>
@@ -588,13 +588,13 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
     if (e.key === 'Escape') { setAmountVal(String(displayAmount)); setEditingAmount(false) }
   }
 
-  const nameColor = isIncome ? 'text-green-700' : 'text-red-600'
-  const amountColor = isIncome ? 'text-green-600' : 'text-red-500'
+  const nameColor = isIncome ? 'text-accent' : 'text-warning'
+  const amountColor = isIncome ? 'text-accent' : 'text-warning'
   const hasProgress = displayCategories.length > 0 && line.computed_actual != null
 
   return (
     <div
-      className={`border-b border-gray-100 last:border-0 group transition-colors ${isDragOver ? 'bg-blue-50' : ''}`}
+      className={`border-b border-surface-border last:border-0 group transition-colors ${isDragOver ? 'bg-accent/20' : ''}`}
       draggable
       onDragStart={onDragStart}
       onDragOver={onDragOver}
@@ -603,7 +603,7 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
     >
       <div className="flex items-center">
         {/* Drag handle */}
-        <div className="pl-3 pr-1 text-gray-300 cursor-grab active:cursor-grabbing select-none opacity-0 group-hover:opacity-100 transition-opacity text-base">
+        <div className="pl-3 pr-1 text-cream-muted/50 cursor-grab active:cursor-grabbing select-none opacity-0 group-hover:opacity-100 transition-opacity text-base">
           ⠿
         </div>
         {/* Name — click to edit */}
@@ -616,7 +616,7 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
               onChange={(e) => setNameVal(e.target.value)}
               onBlur={commitName}
               onKeyDown={handleNameKey}
-              className={`flex-1 text-sm font-medium bg-transparent border-b border-gray-300 outline-none pb-0.5 ${nameColor}`}
+              className={`flex-1 text-sm font-medium bg-transparent border-b border-surface-border outline-none pb-0.5 ${nameColor}`}
             />
           ) : (
             <span
@@ -634,8 +634,8 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
               onClick={() => toggleCategoryPanel(displayCategories[0])}
               className={`text-xs border rounded-full px-2 py-0.5 transition-colors whitespace-nowrap capitalize ${
                 openCategories.has(displayCategories[0])
-                  ? 'bg-blue-50 border-blue-300 text-blue-600'
-                  : 'text-gray-500 border-gray-200 hover:border-gray-400'
+                  ? 'bg-accent/20 border-accent/50 text-accent'
+                  : 'text-cream-muted border-surface-border hover:border-cream-muted'
               }`}
             >
               {displayCategories[0]} {openCategories.has(displayCategories[0]) ? '▴' : '▾'}
@@ -665,17 +665,17 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
                 }}
                 className={
                   displayCategories.length === 0
-                    ? 'text-xs text-gray-400 border border-gray-200 rounded-full px-2 py-0.5 hover:border-gray-300 hover:text-gray-500 transition-colors'
-                    : 'text-gray-400 hover:text-gray-600 transition-colors text-xs leading-none px-0.5 opacity-0 group-hover:opacity-100'
+                    ? 'text-xs text-cream-muted border border-surface-border rounded-full px-2 py-0.5 hover:border-surface-border hover:text-cream-muted transition-colors'
+                    : 'text-cream-muted hover:text-cream-muted transition-colors text-xs leading-none px-0.5 opacity-0 group-hover:opacity-100'
                 }
                 title="Edit categories"
               >
                 {displayCategories.length === 0 ? 'link categories' : '✎'}
               </button>
               {editingCategories && (
-                <div className={`absolute left-0 ${editCatDropUp ? 'bottom-6' : 'top-6'} z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-max min-w-[12rem] max-h-52 overflow-y-auto`}>
+                <div className={`absolute left-0 ${editCatDropUp ? 'bottom-6' : 'top-6'} z-30 bg-surface-card border border-surface-border rounded-xl shadow-lg py-1 w-max min-w-[12rem] max-h-52 overflow-y-auto`}>
                   {allCategories.length === 0 && (
-                    <p className="text-xs text-gray-400 px-3 py-2">No categories found</p>
+                    <p className="text-xs text-cream-muted px-3 py-2">No categories found</p>
                   )}
                   {allCategories.map((c) => {
                     const selected = displayCategories.map((x) => x.toLowerCase()).includes(c.toLowerCase())
@@ -683,10 +683,10 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
                       <button
                         key={c}
                         onClick={() => handleCategoryToggle(c)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 capitalize flex items-center gap-2 whitespace-nowrap"
+                        className="w-full text-left px-3 py-1.5 text-xs text-cream hover:bg-surface-hover capitalize flex items-center gap-2 whitespace-nowrap"
                       >
                         <span className={`w-3.5 h-3.5 shrink-0 rounded border flex items-center justify-center text-[10px] ${
-                          selected ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300'
+                          selected ? 'bg-accent border-accent text-accent-contrast' : 'border-surface-border'
                         }`}>
                           {selected && '✓'}
                         </span>
@@ -712,7 +712,7 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
               onKeyDown={handleAmountKey}
               min="0"
               step="0.01"
-              className={`w-24 text-right text-sm font-semibold bg-transparent border-b border-gray-300 outline-none pb-0.5 ${amountColor}`}
+              className={`w-24 text-right text-sm font-semibold bg-transparent border-b border-surface-border outline-none pb-0.5 ${amountColor}`}
             />
           ) : (
             <span
@@ -728,7 +728,7 @@ function LineRow({ line, allCategories, startDate, endDate, budgetId, onSave, on
         <div className="relative px-1">
           <button
             onClick={onDelete}
-            className="px-2 py-3 text-gray-200 hover:text-red-400 transition-colors text-base opacity-0 group-hover:opacity-100"
+            className="px-2 py-3 text-cream-muted/40 hover:text-danger transition-colors text-base opacity-0 group-hover:opacity-100"
             title="Delete"
           >
             ✕
@@ -786,7 +786,7 @@ function PeriodBadge({ budget }: { budget: Budget }) {
     return (
       <button
         onClick={() => setEditing(true)}
-        className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full hover:bg-gray-200 transition-colors"
+        className="text-xs text-cream-muted bg-surface px-2 py-1 rounded-full hover:bg-surface-hover transition-colors"
       >
         {DATE_RANGE_LABELS[budget.date_range_type] ?? budget.date_range_type}
         {budget.date_range_type === 'custom' && budget.start_date && budget.end_date
@@ -797,7 +797,7 @@ function PeriodBadge({ budget }: { budget: Budget }) {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 absolute right-0 top-8 z-20 w-64 space-y-3">
+    <div className="bg-surface-card border border-surface-border rounded-xl shadow-lg p-3 absolute right-0 top-8 z-20 w-64 space-y-3">
       <div className="grid grid-cols-2 gap-1.5">
         {(['monthly', 'weekly', 'biweekly', 'custom'] as DateRangeType[]).map((r) => (
           <button
@@ -806,8 +806,8 @@ function PeriodBadge({ budget }: { budget: Budget }) {
             onClick={() => setRangeType(r)}
             className={`rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
               rangeType === r
-                ? 'bg-blue-500 border-blue-500 text-white'
-                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                ? 'bg-accent border-accent text-accent-contrast'
+                : 'border-surface-border text-cream-muted hover:border-surface-border'
             }`}
           >
             {DATE_RANGE_LABELS[r]}
@@ -817,14 +817,14 @@ function PeriodBadge({ budget }: { budget: Budget }) {
       {rangeType === 'custom' && (
         <div className="grid grid-cols-2 gap-2">
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs" />
+            className="w-full border border-surface-border rounded-lg px-2 py-1 text-xs" />
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-2 py-1 text-xs" />
+            className="w-full border border-surface-border rounded-lg px-2 py-1 text-xs" />
         </div>
       )}
       <div className="flex gap-2">
-        <button onClick={() => setEditing(false)} className="flex-1 text-xs text-gray-500 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50">Cancel</button>
-        <button onClick={save} disabled={updateMut.isPending} className="flex-1 text-xs text-white bg-blue-500 rounded-lg py-1.5 hover:bg-blue-600 disabled:opacity-50">Save</button>
+        <button onClick={() => setEditing(false)} className="flex-1 text-xs text-cream-muted border border-surface-border rounded-lg py-1.5 hover:bg-surface-hover">Cancel</button>
+        <button onClick={save} disabled={updateMut.isPending} className="flex-1 rounded-lg bg-accent py-1.5 text-xs text-accent-contrast hover:bg-accent-hover disabled:opacity-50">Save</button>
       </div>
     </div>
   )
@@ -871,14 +871,14 @@ export default function BudgetDetailPage() {
   const budget = budgets.find((b) => b.id === id) as Budget | undefined
 
   if (loadingBudgets || loadingLines) {
-    return <p className="text-gray-400 text-sm text-center py-20">Loading…</p>
+    return <p className="text-cream-muted text-sm text-center py-20">Loading…</p>
   }
 
   if (!budget) {
     return (
       <div className="text-center py-20 space-y-3">
-        <p className="text-gray-400 text-sm">Budget not found.</p>
-        <button onClick={() => router.push('/budgets')} className="text-blue-500 text-sm hover:underline">
+        <p className="text-cream-muted text-sm">Budget not found.</p>
+        <button onClick={() => router.push('/budgets')} className="text-accent text-sm hover:underline">
           ← Back
         </button>
       </div>
@@ -1032,19 +1032,19 @@ export default function BudgetDetailPage() {
     <div className="max-w-lg mx-auto flex flex-col min-h-[calc(100vh-4rem)]">
       {/* Header */}
       <div className="flex items-center gap-3 mb-1">
-        <button onClick={() => router.push('/budgets')} className="text-gray-400 hover:text-gray-600 text-sm">
+        <button onClick={() => router.push('/budgets')} className="text-cream-muted hover:text-cream text-sm">
           ← Budgets
         </button>
       </div>
       <div className="flex items-baseline justify-between mb-4 relative">
-        <h1 className="text-2xl font-semibold">{budget.name}</h1>
+        <h1 className="text-2xl font-semibold text-cream">{budget.name}</h1>
         <PeriodBadge budget={budget} />
       </div>
 
       {/* Lines list */}
-      <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-visible mb-4">
+      <div className="flex-1 bg-surface-card rounded-2xl border border-surface-border shadow-sm overflow-visible mb-4">
         {incomeLines.length === 0 && expenseLines.length === 0 && !adding ? (
-          <p className="text-sm text-gray-400 text-center py-12">
+          <p className="text-sm text-cream-muted text-center py-12">
             No entries yet. Add income or expenses below.
           </p>
         ) : (
@@ -1080,7 +1080,7 @@ export default function BudgetDetailPage() {
 
             {/* Divider between income and expenses */}
             {incomeLines.length > 0 && (expenseLines.length > 0 || adding === 'expense') && (
-              <div className="h-px bg-gray-200 mx-4" />
+              <div className="h-px bg-surface-border mx-4" />
             )}
 
             {/* Expense lines */}
@@ -1116,36 +1116,36 @@ export default function BudgetDetailPage() {
       </div>
 
       {/* Bottom section */}
-      <div className="sticky bottom-0 space-y-3 pb-4 pt-1 bg-gray-50">
+      <div className="sticky bottom-0 space-y-3 pb-4 pt-1 bg-surface">
         {/* Add buttons */}
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setAdding('income')}
-            className="bg-green-500 hover:bg-green-600 text-white rounded-2xl py-3.5 text-sm font-semibold shadow-sm transition-colors"
+            className="rounded-2xl bg-accent py-3.5 text-sm font-semibold text-accent-contrast shadow-sm transition-colors hover:bg-accent-hover"
           >
             Add Income
           </button>
           <button
             onClick={() => setAdding('expense')}
-            className="bg-red-500 hover:bg-red-600 text-white rounded-2xl py-3.5 text-sm font-semibold shadow-sm transition-colors"
+            className="rounded-2xl bg-warning py-3.5 text-sm font-semibold text-[#22180a] shadow-sm transition-colors hover:bg-warning-soft"
           >
             Add Expense
           </button>
         </div>
 
         {/* Summary bar */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 grid grid-cols-3 gap-2 text-center">
+        <div className="bg-surface-card rounded-2xl border border-surface-border shadow-sm px-4 py-3 grid grid-cols-3 gap-2 text-center">
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Income</p>
-            <p className="text-sm font-semibold text-green-600">+{fmt(totalIncome)}</p>
+            <p className="text-xs text-cream-muted mb-0.5">Income</p>
+            <p className="text-sm font-semibold text-accent">+{fmt(totalIncome)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Expenses</p>
-            <p className="text-sm font-semibold text-red-500">-{fmt(totalExpenses)}</p>
+            <p className="text-xs text-cream-muted mb-0.5">Expenses</p>
+            <p className="text-sm font-semibold text-warning">-{fmt(totalExpenses)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Balance</p>
-            <p className={`text-sm font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+            <p className="text-xs text-cream-muted mb-0.5">Balance</p>
+            <p className={`text-sm font-bold ${balance >= 0 ? 'text-accent' : 'text-danger'}`}>
               {balance >= 0 ? '+' : ''}{fmt(balance)}
             </p>
           </div>

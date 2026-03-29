@@ -1,3 +1,39 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  .app-shell {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(103, 231, 169, 0.08), transparent 28%),
+      radial-gradient(circle at top right, rgba(241, 219, 143, 0.06), transparent 22%),
+      linear-gradient(180deg, #121a2f 0%, #0d1424 100%);
+  }
+
+  .app-shell ::selection {
+    background: rgba(103, 231, 169, 0.28);
+    color: #f4efe2;
+  }
+
+  .app-shell input,
+  .app-shell select,
+  .app-shell textarea {
+    color-scheme: dark;
+  }
+}
+
+@layer components {
+  .app-panel {
+    @apply border border-surface-border bg-surface-card shadow-card;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+  }
+}

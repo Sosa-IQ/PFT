@@ -1,16 +1,17 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: '◈' },
-  { label: 'Transactions', href: '/transactions', icon: '↕' },
-  { label: 'Budgets', href: '/budgets', icon: '⊕' },
+  { label: 'Dashboard', href: '/dashboard', icon: '✦' },
+  { label: 'Transactions', href: '/transactions', icon: '↺' },
+  { label: 'Budgets', href: '/budgets', icon: '◫' },
   { label: 'Goals', href: '/goals', icon: '◎' },
-  { label: 'Liabilities', href: '/liabilities', icon: '⊖' },
+  { label: 'Liabilities', href: '/liabilities', icon: '◌' },
   { label: 'Settings', href: '/settings', icon: '⚙' },
 ]
 
@@ -24,28 +25,37 @@ export default function NavSidebar({ session }: { session: Session | null }) {
   }
 
   return (
-    <nav className="w-56 h-screen bg-white border-r border-gray-200 flex flex-col px-4 py-6 shrink-0 sticky top-0">
-      {/* Brand */}
-      <div className="mb-8 px-1">
-        <span className="text-lg font-bold text-blue-600">Finance</span>
-        <span className="text-lg font-bold text-gray-800"> Tracker</span>
+    <nav className="sticky top-0 flex h-screen w-72 shrink-0 flex-col border-r border-surface-border/80 bg-surface-sidebar/95 px-4 py-5 backdrop-blur-xl">
+      <div className="mb-8 flex items-center gap-3 px-2">
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-[#1f2a42] ring-1 ring-white/5">
+          <Image
+            src="/BudgitBuddy.png"
+            alt="Budgit Buddy mascot"
+            fill
+            sizes="56px"
+            className="object-contain p-1.5"
+          />
+        </div>
+        <div className="leading-none">
+          <div className="text-[2rem] font-bold tracking-tight text-accent">Budgit</div>
+          <div className="-mt-1 text-[2rem] font-bold tracking-tight text-warning">Buddy</div>
+        </div>
       </div>
 
-      {/* Nav links */}
-      <ul className="space-y-1 flex-1">
+      <ul className="flex-1 space-y-1.5">
         {navItems.map(({ label, href, icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <li key={href}>
               <Link
                 href={href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-base font-medium transition-all ${
                   active
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-gradient-to-r from-accent to-[#6de0bf] text-accent-contrast shadow-[0_10px_30px_rgba(103,231,169,0.2)]'
+                    : 'text-cream-muted hover:bg-surface-hover hover:text-cream'
                 }`}
               >
-                <span className="text-base leading-none">{icon}</span>
+                <span className={`text-lg leading-none ${active ? 'opacity-90' : 'opacity-70'}`}>{icon}</span>
                 {label}
               </Link>
             </li>
@@ -53,14 +63,13 @@ export default function NavSidebar({ session }: { session: Session | null }) {
         })}
       </ul>
 
-      {/* User + sign out */}
-      <div className="border-t border-gray-200 pt-4 mt-4 space-y-2">
-        <p className="text-xs text-gray-400 truncate px-1">
+      <div className="mt-4 space-y-3 border-t border-surface-border pt-4">
+        <p className="truncate px-2 text-xs uppercase tracking-[0.18em] text-cream-muted/80">
           {(session?.user?.user_metadata?.full_name as string | undefined) || session?.user?.email}
         </p>
         <button
           onClick={handleSignOut}
-          className="text-sm text-gray-500 hover:text-red-500 transition-colors px-1"
+          className="rounded-xl px-2 py-2 text-left text-sm text-cream-muted transition-colors hover:bg-surface-hover hover:text-danger"
         >
           Sign out
         </button>

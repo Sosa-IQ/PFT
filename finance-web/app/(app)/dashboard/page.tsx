@@ -142,15 +142,15 @@ export default function DashboardPage() {
   const spendingData = groupByCategory(transactions, depositoryAccountNames)
 
   if (loading) {
-    return <p className="text-gray-400 text-sm py-16 text-center">Loading dashboard…</p>
+    return <p className="text-cream-muted text-sm py-16 text-center">Loading dashboard…</p>
   }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <h1 className="text-2xl font-semibold text-cream">Dashboard</h1>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+        <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger">
           {error instanceof Error ? error.message : 'Failed to load data'}
         </div>
       )}
@@ -160,30 +160,30 @@ export default function DashboardPage() {
         <StatCard
           label="Net Worth"
           value={netWorth}
-          color={netWorth >= 0 ? 'text-green-600' : 'text-red-500'}
+          color={netWorth >= 0 ? 'text-accent' : 'text-danger'}
         />
-        <StatCard label="Total Assets" value={totalAssets} color="text-blue-600" />
-        <StatCard label="Total Debt" value={totalDebt} color="text-red-400" />
+        <StatCard label="Total Assets" value={totalAssets} color="text-accent" />
+        <StatCard label="Total Debt" value={totalDebt} color="text-warning" />
       </div>
 
       {/* Connected Accounts */}
       {(accounts.length > 0 || liabilities.length > 0) && (
-        <section className="bg-white rounded-2xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold mb-4">Accounts</h2>
+        <section className="app-panel rounded-3xl p-6">
+          <h2 className="text-base font-semibold text-cream mb-4">Accounts</h2>
 
           {assetAccounts.length > 0 && (
             <>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Assets</p>
-              <ul className="divide-y divide-gray-100 mb-4">
+              <p className="text-xs font-medium text-cream-muted uppercase tracking-wide mb-2">Assets</p>
+              <ul className="divide-y divide-surface-border mb-4">
                 {assetAccounts.map((a) => (
                   <li key={a.id} className="flex items-center justify-between py-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{a.account_name}</p>
-                      <p className="text-xs text-gray-400 capitalize">
+                      <p className="text-sm font-medium text-cream">{a.account_name}</p>
+                      <p className="text-xs text-cream-muted capitalize">
                         {a.institution_name ?? ''} · {a.account_type}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-blue-600">${fmt(a.current_balance ?? 0)}</p>
+                    <p className="text-sm font-semibold text-accent">${fmt(a.current_balance ?? 0)}</p>
                   </li>
                 ))}
               </ul>
@@ -192,28 +192,28 @@ export default function DashboardPage() {
 
           {(debtAccounts.length > 0 || liabilities.length > 0) && (
             <>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Debt</p>
-              <ul className="divide-y divide-gray-100">
+              <p className="text-xs font-medium text-cream-muted uppercase tracking-wide mb-2">Debt</p>
+              <ul className="divide-y divide-surface-border">
                 {debtAccounts.map((a) => (
                   <li key={a.id} className="flex items-center justify-between py-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{a.account_name}</p>
-                      <p className="text-xs text-gray-400 capitalize">
+                      <p className="text-sm font-medium text-cream">{a.account_name}</p>
+                      <p className="text-xs text-cream-muted capitalize">
                         {a.institution_name ?? ''} · {a.account_type}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-red-500">${fmt(a.current_balance ?? 0)}</p>
+                    <p className="text-sm font-semibold text-warning">${fmt(a.current_balance ?? 0)}</p>
                   </li>
                 ))}
                 {liabilities.map((l) => (
                   <li key={l.id} className="flex items-center justify-between py-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{l.name}</p>
-                      <p className="text-xs text-gray-400 capitalize">
+                      <p className="text-sm font-medium text-cream">{l.name}</p>
+                      <p className="text-xs text-cream-muted capitalize">
                         Manual · {l.type ? l.type.replace(/_/g, ' ') : 'debt'}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-red-500">${fmt(l.balance)}</p>
+                    <p className="text-sm font-semibold text-warning">${fmt(l.balance)}</p>
                   </li>
                 ))}
               </ul>
@@ -223,11 +223,11 @@ export default function DashboardPage() {
       )}
 
       {/* Spending Chart */}
-      <section className="bg-white rounded-2xl border border-gray-200 p-6">
+      <section className="app-panel rounded-3xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 className="text-base font-semibold">Spending</h2>
+          <h2 className="text-base font-semibold text-cream">Spending</h2>
           {/* Date range tabs */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 text-sm">
+          <div className="flex items-center gap-1 rounded-2xl border border-surface-border bg-surface/85 p-1 text-sm">
             {([
               ['this_month', 'This Month'],
               ['this_week', 'This Week'],
@@ -239,8 +239,8 @@ export default function DashboardPage() {
                 onClick={() => { setDateTab(tab); setSelectedCategory(null) }}
                 className={`px-3 py-1 rounded-md transition-colors ${
                   dateTab === tab
-                    ? 'bg-white text-gray-900 shadow-sm font-medium'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-surface-raised text-cream shadow-sm font-medium'
+                    : 'text-cream-muted hover:text-cream'
                 }`}
               >
                 {label}
@@ -252,31 +252,31 @@ export default function DashboardPage() {
         {/* Custom date pickers */}
         {dateTab === 'custom' && (
           <div className="flex flex-wrap items-center gap-3 mb-4">
-            <label className="flex items-center gap-2 text-sm text-gray-600">
+            <label className="flex items-center gap-2 text-sm text-cream-muted">
               From
               <input
                 type="date"
                 value={customStart}
                 max={customEnd}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="border border-gray-200 rounded-md px-2 py-1 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="border border-surface-border bg-surface rounded-md px-2 py-1 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-600">
+            <label className="flex items-center gap-2 text-sm text-cream-muted">
               To
               <input
                 type="date"
                 value={customEnd}
                 min={customStart}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="border border-gray-200 rounded-md px-2 py-1 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="border border-surface-border bg-surface rounded-md px-2 py-1 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </label>
           </div>
         )}
 
         {loadingTxns ? (
-          <p className="text-sm text-gray-400 text-center py-8">Loading…</p>
+          <p className="text-sm text-cream-muted text-center py-8">Loading…</p>
         ) : spendingData.length > 0 ? (
           <SpendingChart
             data={spendingData}
@@ -287,25 +287,25 @@ export default function DashboardPage() {
             totalLabel={totalLabel}
           />
         ) : accounts.length > 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">
+          <p className="text-sm text-cream-muted text-center py-8">
             No spending data for this period.{' '}
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
-              className="text-blue-500 hover:underline disabled:opacity-50"
+              className="text-accent hover:underline disabled:opacity-50"
             >
               {syncMutation.isPending ? 'Syncing…' : 'Resync'}
             </button>
             {' '}or{' '}
-            <Link href="/settings" className="text-blue-500 hover:underline">
+            <Link href="/settings" className="text-accent hover:underline">
               connect another account
             </Link>
             .
           </p>
         ) : (
-          <p className="text-sm text-gray-400 text-center py-8">
+          <p className="text-sm text-cream-muted text-center py-8">
             No spending data for this period.{' '}
-            <Link href="/settings" className="text-blue-500 hover:underline">
+            <Link href="/settings" className="text-accent hover:underline">
               Connect a bank account
             </Link>{' '}
             to get started.
@@ -317,13 +317,13 @@ export default function DashboardPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">Recent Transactions</h2>
+            <h2 className="text-base font-semibold text-cream">Recent Transactions</h2>
             {selectedCategory && (
-              <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
                 {selectedCategory}
                 <button
                   onClick={() => setSelectedCategory(null)}
-                  className="ml-0.5 hover:text-blue-900"
+                  className="ml-0.5 hover:text-accent-hover"
                   aria-label="Clear filter"
                 >
                   &times;
@@ -331,7 +331,7 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
-          <Link href="/transactions" className="text-sm text-blue-500 hover:underline">
+          <Link href="/transactions" className="text-sm text-accent hover:underline">
             View all
           </Link>
         </div>
@@ -355,8 +355,8 @@ function StatCard({
   color: string
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
+    <div className="app-panel rounded-2xl p-5">
+      <p className="text-xs text-cream-muted mb-1">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>
         {value < 0 ? '-' : ''}${fmt(Math.abs(value))}
       </p>
