@@ -58,10 +58,10 @@ export default function SignupPage() {
     <div className="app-panel w-full max-w-md rounded-3xl p-8 sm:p-10">
       <div className="mb-8 flex items-center gap-3">
         <div className="relative h-14 w-14 overflow-hidden rounded-2xl bg-surface-raised ring-1 ring-surface-border">
-          <Image src="/BudgitBuddy.png" alt="Budgit Buddy mascot" fill sizes="56px" className="object-contain p-1.5" />
+          <Image src="/BudgitBuddy.png" alt="BudgIt Buddy mascot" fill sizes="56px" className="object-contain p-1.5" />
         </div>
         <div>
-          <p className="text-2xl font-bold tracking-tight"><span className="text-accent">Budgit</span> <span className="text-warning-display">Buddy</span></p>
+          <p className="text-2xl font-bold tracking-tight"><span className="text-accent">BudgIt</span> <span className="text-warning-display">Buddy</span></p>
           <p className="text-sm text-cream-muted">Set up your account and start tracking</p>
         </div>
       </div>

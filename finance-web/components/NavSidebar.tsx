@@ -31,14 +31,14 @@ export default function NavSidebar({ session }: { session: Session | null }) {
         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-surface-raised ring-1 ring-surface-border">
           <Image
             src="/BudgitBuddy.png"
-            alt="Budgit Buddy mascot"
+            alt="BudgIt Buddy mascot"
             fill
             sizes="56px"
             className="object-contain p-1.5"
           />
         </div>
         <div className="leading-none">
-          <div className="text-[2rem] font-bold tracking-tight text-accent">Budgit</div>
+          <div className="text-[2rem] font-bold tracking-tight text-accent">BudgIt</div>
           <div className="-mt-1 text-[2rem] font-bold tracking-tight text-warning-display">Buddy</div>
         </div>
         <ThemeToggle className="border border-surface-border bg-surface-card text-cream-muted hover:bg-surface-hover hover:text-cream dark:text-cream-muted dark:hover:bg-surface-hover dark:hover:text-cream" />

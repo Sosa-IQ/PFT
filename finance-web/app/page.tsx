@@ -72,7 +72,7 @@ function BuddyCard() {
       <div className="shrink-0">
         <Image
           src="/BudgitBuddy.png"
-          alt="Budgit Buddy mascot"
+          alt="BudgIt Buddy mascot"
           width={120}
           height={120}
           className="drop-shadow-lg"
@@ -97,8 +97,8 @@ export default function LandingPage() {
       <nav className="fixed inset-x-0 top-0 z-50 border-b border-surface-border bg-surface-sidebar/85 backdrop-blur-md transition-colors duration-200">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image src="/icon.png" alt="Budgit Buddy" width={32} height={32} className="rounded-lg" />
-            <span className="text-lg font-bold tracking-tight"><span className="text-accent">Budgit</span> <span className="text-warning-display">Buddy</span></span>
+            <Image src="/icon.png" alt="BudgIt Buddy" width={32} height={32} className="rounded-lg" />
+            <span className="text-lg font-bold tracking-tight"><span className="text-accent">BudgIt</span> <span className="text-warning-display">Buddy</span></span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-cream-muted">
             <a href="#features" className="font-medium text-accent-text dark:text-accent transition-colors hover:text-accent-hover">Features</a>
@@ -262,7 +262,7 @@ export default function LandingPage() {
         <div className="app-panel mx-auto max-w-2xl rounded-3xl p-14 text-center">
           <h2 className="mb-4 text-3xl font-extrabold text-cream md:text-4xl">Ready to take control?</h2>
           <p className="mb-10 leading-relaxed text-cream-muted">
-            Join thousands of people who have simplified their finances and achieved their goals with Budgit Buddy.
+            Join thousands of people who have simplified their finances and achieved their goals with BudgIt Buddy.
           </p>
           <Link
             href="/signup"
@@ -278,8 +278,8 @@ export default function LandingPage() {
       <footer className="border-t border-surface-border px-6 py-8 transition-colors">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Image src="/icon.png" alt="Budgit Buddy" width={20} height={20} className="rounded" />
-            <span className="text-sm font-semibold"><span className="text-accent">Budgit</span> <span className="text-warning-display">Buddy</span></span>
+            <Image src="/icon.png" alt="BudgIt Buddy" width={20} height={20} className="rounded" />
+            <span className="text-sm font-semibold"><span className="text-accent">BudgIt</span> <span className="text-warning-display">Buddy</span></span>
           </div>
           <div className="flex items-center gap-6 text-xs text-cream-muted">
             <a href="#" className="transition-colors hover:text-cream">Privacy Policy</a>
@@ -287,7 +287,7 @@ export default function LandingPage() {
             <a href="#" className="transition-colors hover:text-cream">Security</a>
             <a href="#" className="transition-colors hover:text-cream">Status</a>
           </div>
-          <p className="text-xs text-cream-muted">© 2024 Budgit Buddy. All rights reserved.</p>
+          <p className="text-xs text-cream-muted">© 2024 BudgIt Buddy. All rights reserved.</p>
         </div>
       </footer>
 

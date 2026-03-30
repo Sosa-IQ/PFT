@@ -4,7 +4,7 @@ import ThemeProvider from '@/components/ThemeProvider'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Budgit Buddy',
+  title: 'BudgIt Buddy',
   description: 'The financial dashboard that turns complex spreadsheets into a beautiful journey toward wealth.',
   icons: {
     icon: '/icon.png',
