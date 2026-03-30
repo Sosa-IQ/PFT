@@ -1,3 +1,107 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --app-surface: 245 247 252;
+    --app-surface-sidebar: 255 255 255;
+    --app-surface-card: 255 255 255;
+    --app-surface-border: 220 225 236;
+    --app-surface-hover: 241 245 251;
+    --app-surface-raised: 233 237 245;
+    --app-text: 23 31 46;
+    --app-text-muted: 97 107 128;
+    --app-accent: 53 195 148;
+    --app-accent-hover: 37 179 133;
+    --app-accent-contrast: 248 252 251;
+    --app-accent-text: 24 135 101;
+    --app-warning: 163 116 24;
+    --app-warning-soft: 236 215 157;
+    --app-warning-display: 222 188 92;
+    --app-danger: 225 119 125;
+    --app-danger-soft: 244 180 184;
+    --app-shell-accent-glow: 0.08;
+    --app-shell-warning-glow: 0.06;
+    --app-shell-top: 255 255 255;
+    --app-shell-bottom: 245 247 252;
+    --app-panel-overlay-top: 255 255 255 / 0.24;
+    --app-panel-overlay-bottom: 255 255 255 / 0;
+    --app-panel-shadow: 0 6px 18px rgba(31, 42, 68, 0.06);
+    --app-form-scheme: light;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --app-surface: 14 21 37;
+    --app-surface-sidebar: 19 28 49;
+    --app-surface-card: 24 35 58;
+    --app-surface-border: 38 53 82;
+    --app-surface-hover: 29 41 68;
+    --app-surface-raised: 32 45 72;
+    --app-text: 244 239 226;
+    --app-text-muted: 142 155 183;
+    --app-accent: 103 231 169;
+    --app-accent-hover: 124 240 182;
+    --app-accent-contrast: 9 17 29;
+    --app-accent-text: 103 231 169;
+    --app-warning: 241 219 143;
+    --app-warning-soft: 245 230 173;
+    --app-warning-display: 241 219 143;
+    --app-danger: 255 139 136;
+    --app-danger-soft: 255 176 171;
+    --app-shell-accent-glow: 0.08;
+    --app-shell-warning-glow: 0.06;
+    --app-shell-top: 18 26 47;
+    --app-shell-bottom: 13 20 36;
+    --app-panel-overlay-top: 255 255 255 / 0.02;
+    --app-panel-overlay-bottom: 255 255 255 / 0;
+    --app-panel-shadow: 0 18px 45px rgba(5, 11, 25, 0.22);
+    --app-form-scheme: dark;
+  }
+
+  .app-shell {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(var(--app-accent), var(--app-shell-accent-glow)), transparent 28%),
+      radial-gradient(circle at top right, rgba(var(--app-warning), var(--app-shell-warning-glow)), transparent 22%),
+      linear-gradient(
+        180deg,
+        rgba(var(--app-shell-top), 1) 0%,
+        rgba(var(--app-shell-bottom), 1) 100%
+      );
+  }
+
+  .app-shell ::selection {
+    background: rgb(var(--app-accent) / 0.28);
+    color: rgb(var(--app-text));
+  }
+
+  .app-shell ::-moz-selection {
+    background: rgb(var(--app-accent) / 0.28);
+    color: rgb(var(--app-text));
+  }
+
+  .app-shell input,
+  .app-shell select,
+  .app-shell textarea {
+    color-scheme: var(--app-form-scheme);
+  }
+}
+
+@layer components {
+  .app-panel {
+    @apply border border-surface-border bg-surface-card;
+    background-image: linear-gradient(
+      180deg,
+      rgb(var(--app-panel-overlay-top)),
+      rgb(var(--app-panel-overlay-bottom))
+    );
+    box-shadow: var(--app-panel-shadow);
+  }
+}

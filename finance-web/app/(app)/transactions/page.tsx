@@ -40,45 +40,45 @@ export default function TransactionsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <h1 className="text-2xl font-semibold">Transactions</h1>
+      <h1 className="text-2xl font-semibold text-cream">Transactions</h1>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="app-panel rounded-2xl p-4">
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+            <label className="block text-xs font-medium text-cream-muted mb-1">Category</label>
             <input
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="e.g. groceries"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-surface-border rounded-lg px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+            <label className="block text-xs font-medium text-cream-muted mb-1">From</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-surface-border rounded-lg px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+            <label className="block text-xs font-medium text-cream-muted mb-1">To</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-surface-border rounded-lg px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Limit</label>
+            <label className="block text-xs font-medium text-cream-muted mb-1">Limit</label>
             <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-surface-border rounded-lg px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value={50}>50</option>
               <option value={100}>100</option>
@@ -90,13 +90,13 @@ export default function TransactionsPage() {
         <div className="flex gap-3 mt-3">
           <button
             onClick={handleApply}
-            className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
           >
             Apply filters
           </button>
           <button
             onClick={handleReset}
-            className="text-gray-500 rounded-lg px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+            className="text-cream-muted rounded-lg px-4 py-2 text-sm hover:bg-surface-hover transition-colors"
           >
             Reset
           </button>
@@ -104,7 +104,7 @@ export default function TransactionsPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+        <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger">
           {error instanceof Error ? error.message : 'Failed to load transactions'}
         </div>
       )}
@@ -112,10 +112,10 @@ export default function TransactionsPage() {
       {/* Results */}
       <div>
         {isLoading ? (
-          <p className="text-gray-400 text-sm py-10 text-center">Loading…</p>
+          <p className="text-cream-muted text-sm py-10 text-center">Loading…</p>
         ) : (
           <>
-            <p className="text-xs text-gray-400 mb-3">{transactions.length} transaction(s)</p>
+            <p className="text-xs text-cream-muted mb-3">{transactions.length} transaction(s)</p>
             <TransactionTable transactions={transactions} />
           </>
         )}

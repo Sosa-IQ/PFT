@@ -112,17 +112,17 @@ export default function LiabilitiesPage() {
   const totalDebt = plaidTotal + manualTotal
   const loading = loadingDebts || loadingLiabs
 
-  if (loading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
+  if (loading) return <p className="text-cream-muted text-sm py-16 text-center">Loading…</p>
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Liabilities</h1>
+          <h1 className="text-2xl font-semibold text-cream">Liabilities</h1>
           {totalDebt > 0 && (
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-cream-muted mt-0.5">
               Total debt:{' '}
-              <span className="font-semibold text-red-500">
+              <span className="font-semibold text-warning-display">
                 ${totalDebt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </p>
@@ -130,14 +130,14 @@ export default function LiabilitiesPage() {
         </div>
         <button
           onClick={openAdd}
-          className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
         >
           + Add Manual Debt
         </button>
       </div>
 
       {(liabError || error) && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+        <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger">
           {liabError instanceof Error ? liabError.message : error}
         </div>
       )}
@@ -145,33 +145,33 @@ export default function LiabilitiesPage() {
       {/* ── Plaid-synced debt accounts ─────────────────────────────────────── */}
       {plaidDebts.length > 0 && (
         <section>
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-sm font-semibold text-gray-700">From Bank (Plaid)</h2>
-            <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">synced</span>
+          <div className="mb-3 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-cream">From Bank (Plaid)</h2>
+            <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent-text dark:text-accent">synced</span>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="app-panel overflow-hidden rounded-2xl">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-surface border-b border-surface-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Account</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Type</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500">Balance</th>
+                  <th className="text-left px-4 py-3 font-medium text-cream-muted">Account</th>
+                  <th className="text-left px-4 py-3 font-medium text-cream-muted">Type</th>
+                  <th className="text-right px-4 py-3 font-medium text-cream-muted">Balance</th>
                 </tr>
               </thead>
               <tbody>
                 {plaidDebts.map((a) => (
                   <tr
                     key={a.id}
-                    className="border-b border-gray-100 last:border-0"
+                    className="border-b border-surface-border last:border-0"
                   >
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-800">{a.account_name}</p>
+                      <p className="font-medium text-cream">{a.account_name}</p>
                       {a.institution_name && (
-                        <p className="text-xs text-gray-400">{a.institution_name}</p>
+                        <p className="text-xs text-cream-muted">{a.institution_name}</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 capitalize">{a.account_type}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-red-500">
+                    <td className="px-4 py-3 text-cream-muted capitalize">{a.account_type}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-warning">
                       ${(a.current_balance ?? 0).toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -180,10 +180,10 @@ export default function LiabilitiesPage() {
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="border-t border-gray-200 bg-gray-50">
+              <tfoot className="border-t border-surface-border bg-surface">
                 <tr>
-                  <td colSpan={2} className="px-4 py-2 text-xs font-medium text-gray-500">Subtotal</td>
-                  <td className="px-4 py-2 text-right text-sm font-semibold text-red-500">
+                  <td colSpan={2} className="px-4 py-2 text-xs font-medium text-cream-muted">Subtotal</td>
+                  <td className="px-4 py-2 text-right text-sm font-semibold text-warning">
                     ${plaidTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
@@ -197,26 +197,26 @@ export default function LiabilitiesPage() {
       {showForm && (
         <form
           onSubmit={handleSave}
-          className="bg-white rounded-xl border border-gray-200 p-5 space-y-4"
+          className="app-panel rounded-2xl p-5 space-y-4"
         >
-          <h2 className="font-semibold text-gray-800">
+          <h2 className="font-semibold text-cream">
             {editingId ? 'Edit Liability' : 'Add Liability'}
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <label className="block text-sm font-medium text-cream mb-1">Name</label>
               <input
                 type="text"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 required
                 placeholder="e.g. Student Loan"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border bg-surface rounded-lg px-3 py-2 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Balance ($)</label>
+              <label className="block text-sm font-medium text-cream mb-1">Balance ($)</label>
               <input
                 type="number"
                 value={formBalance}
@@ -225,12 +225,12 @@ export default function LiabilitiesPage() {
                 min="0"
                 step="0.01"
                 placeholder="2500.00"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border bg-surface rounded-lg px-3 py-2 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                APR % <span className="text-gray-400">(optional)</span>
+              <label className="block text-sm font-medium text-cream mb-1">
+                APR % <span className="text-cream-muted">(optional)</span>
               </label>
               <input
                 type="number"
@@ -240,12 +240,12 @@ export default function LiabilitiesPage() {
                 max="100"
                 step="0.01"
                 placeholder="21.99"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border bg-surface rounded-lg px-3 py-2 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Minimum payment ($) <span className="text-gray-400">(optional)</span>
+              <label className="block text-sm font-medium text-cream mb-1">
+                Minimum payment ($) <span className="text-cream-muted">(optional)</span>
               </label>
               <input
                 type="number"
@@ -254,17 +254,17 @@ export default function LiabilitiesPage() {
                 min="0"
                 step="0.01"
                 placeholder="50.00"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border bg-surface rounded-lg px-3 py-2 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Type <span className="text-gray-400">(optional)</span>
+              <label className="block text-sm font-medium text-cream mb-1">
+                Type <span className="text-cream-muted">(optional)</span>
               </label>
               <select
                 value={formType}
                 onChange={(e) => setFormType(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border bg-surface rounded-lg px-3 py-2 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 <option value="">Select type…</option>
                 {LIABILITY_TYPES.map((t) => (
@@ -276,20 +276,20 @@ export default function LiabilitiesPage() {
             </div>
           </div>
 
-          {formError && <p className="text-sm text-red-500">{formError}</p>}
+          {formError && <p className="text-sm text-danger">{formError}</p>}
 
           <div className="flex gap-3">
             <button
               type="submit"
               disabled={saving}
-              className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="text-gray-500 rounded-lg px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+              className="text-cream-muted rounded-lg px-4 py-2 text-sm hover:bg-surface-hover transition-colors"
             >
               Cancel
             </button>
@@ -300,23 +300,23 @@ export default function LiabilitiesPage() {
       {/* ── Manually-tracked liabilities ──────────────────────────────────── */}
       <section>
         {liabilities.length > 0 && (
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Manual Entries</h2>
+          <h2 className="text-sm font-semibold text-cream mb-3">Manual Entries</h2>
         )}
         {liabilities.length === 0 && plaidDebts.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-12">
+          <p className="text-sm text-cream-muted text-center py-12">
             No liabilities tracked. Connect a bank or add a manual debt above.
           </p>
         ) : liabilities.length === 0 ? null : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="app-panel overflow-hidden rounded-2xl">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-surface border-b border-surface-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Type</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500">Balance</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500">APR</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500">Min. Payment</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500">Payoff Est.</th>
+                  <th className="text-left px-4 py-3 font-medium text-cream-muted">Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-cream-muted">Type</th>
+                  <th className="text-right px-4 py-3 font-medium text-cream-muted">Balance</th>
+                  <th className="text-right px-4 py-3 font-medium text-cream-muted">APR</th>
+                  <th className="text-right px-4 py-3 font-medium text-cream-muted">Min. Payment</th>
+                  <th className="text-right px-4 py-3 font-medium text-cream-muted">Payoff Est.</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -326,35 +326,35 @@ export default function LiabilitiesPage() {
                   return (
                     <tr
                       key={l.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
+                      className="border-b border-surface-border last:border-0 hover:bg-surface-hover transition-colors"
                     >
-                      <td className="px-4 py-3 font-medium text-gray-800">{l.name}</td>
-                      <td className="px-4 py-3 text-gray-500 capitalize">
+                      <td className="px-4 py-3 font-medium text-cream">{l.name}</td>
+                      <td className="px-4 py-3 text-cream-muted capitalize">
                         {l.type ? l.type.replace(/_/g, ' ') : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-red-500">
+                      <td className="px-4 py-3 text-right font-semibold text-warning">
                         ${l.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-600">
+                      <td className="px-4 py-3 text-right text-cream-muted">
                         {l.apr != null ? `${l.apr}%` : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-600">
+                      <td className="px-4 py-3 text-right text-cream-muted">
                         {l.minimum_payment != null ? `$${l.minimum_payment.toFixed(2)}` : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-right text-cream-muted text-xs">
                         {fmtPayoff(months)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-3 justify-end">
                           <button
                             onClick={() => openEdit(l)}
-                            className="text-xs text-blue-500 hover:underline"
+                            className="text-xs text-accent-text dark:text-accent hover:underline"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDelete(l.id, l.name)}
-                            className="text-xs text-red-400 hover:underline"
+                            className="text-xs text-danger hover:underline"
                           >
                             Delete
                           </button>

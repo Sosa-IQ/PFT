@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -11,6 +12,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -25,50 +28,93 @@ export default function LoginPage() {
     }
   }
 
+  async function handleForgotPassword() {
+    if (!email) {
+      setError('Enter your email address above, then click "Forgot password?".')
+      return
+    }
+    setError(null)
+    setResetLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setResetLoading(false)
+    if (error) {
+      setError(error.message)
+    } else {
+      setResetSent(true)
+    }
+  }
+
   return (
-    <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-      <h1 className="text-2xl font-semibold mb-1">Sign in</h1>
-      <p className="text-sm text-gray-500 mb-6">Welcome back to Finance Tracker</p>
+    <div className="app-panel w-full max-w-md rounded-3xl p-8 sm:p-10">
+      <div className="mb-8 flex items-center gap-3">
+        <div className="relative h-14 w-14 overflow-hidden rounded-2xl bg-surface-raised ring-1 ring-surface-border">
+          <Image src="/BudgitBuddy.png" alt="BudgIt Buddy mascot" fill sizes="56px" className="object-contain p-1.5" />
+        </div>
+        <div>
+          <p className="text-2xl font-bold tracking-tight"><span className="text-accent">BudgIt</span> <span className="text-warning-display">Buddy</span></p>
+          <p className="text-sm text-cream-muted">Welcome back to your finance hub</p>
+        </div>
+      </div>
+
+      <h1 className="mb-1 text-2xl font-semibold text-cream">Sign in</h1>
+      <p className="mb-6 text-sm text-cream-muted">Access your dashboard, budgets, and synced accounts.</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label className="mb-1 block text-sm font-medium text-cream">Email</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border border-surface-border bg-surface px-3 py-2.5 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="block text-sm font-medium text-cream">Password</label>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={resetLoading}
+              className="text-xs text-accent-text dark:text-accent hover:underline disabled:opacity-50"
+            >
+              {resetLoading ? 'Sending…' : 'Forgot password?'}
+            </button>
+          </div>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-xl border border-surface-border bg-surface px-3 py-2.5 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
+        {resetSent && (
+          <p className="text-sm text-accent-text dark:text-accent">
+            Password reset email sent. Check your inbox.
+          </p>
+        )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="w-full rounded-xl bg-accent py-2.5 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover disabled:opacity-50"
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
 
-      <p className="mt-5 text-sm text-center text-gray-500">
+      <p className="mt-5 text-center text-sm text-cream-muted">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-blue-600 hover:underline">
+        <Link href="/signup" className="text-accent-text dark:text-accent hover:underline">
           Sign up
         </Link>
       </p>

@@ -2,24 +2,53 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useAccounts, useLiabilities, useTransactions } from '@/hooks/queries'
+import { useAccounts, useLiabilities, useTransactions, useSyncTransactions } from '@/hooks/queries'
 import type { Transaction } from '@/lib/api'
 import SpendingChart from '@/components/SpendingChart'
 import TransactionTable from '@/components/TransactionTable'
+
+type DateTab = 'this_month' | 'this_week' | 'last_month' | 'custom'
 
 // Plaid account types that represent money owed, not money held.
 // Their current_balance is the outstanding debt amount.
 const DEBT_ACCOUNT_TYPES = new Set(['credit', 'loan'])
 
-// Returns "YYYY-MM-DD" strings for the first and last day of the current month.
-function currentMonthRange() {
+function toDateStr(d: Date) {
+  return d.toISOString().split('T')[0]
+}
+
+function thisMonthRange() {
   const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth(), 1)
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
   return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0],
+    start: toDateStr(new Date(now.getFullYear(), now.getMonth(), 1)),
+    end: toDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
   }
+}
+
+function thisWeekRange() {
+  const now = new Date()
+  // Week starts Monday
+  const day = now.getDay() // 0=Sun, 1=Mon, ...
+  const diffToMon = (day === 0 ? -6 : 1 - day)
+  const mon = new Date(now)
+  mon.setDate(now.getDate() + diffToMon)
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  return { start: toDateStr(mon), end: toDateStr(sun) }
+}
+
+function lastMonthRange() {
+  const now = new Date()
+  const first = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const last = new Date(now.getFullYear(), now.getMonth(), 0)
+  return { start: toDateStr(first), end: toDateStr(last) }
+}
+
+function getDateRange(tab: DateTab, customStart: string, customEnd: string) {
+  if (tab === 'this_week') return thisWeekRange()
+  if (tab === 'last_month') return lastMonthRange()
+  if (tab === 'custom') return { start: customStart, end: customEnd }
+  return thisMonthRange()
 }
 
 // Plaid primary categories that are never real spending.
@@ -68,20 +97,30 @@ function fmt(n: number) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const { start, end } = currentMonthRange()
-
 export default function DashboardPage() {
+  const [dateTab, setDateTab] = useState<DateTab>('this_month')
+  const [customStart, setCustomStart] = useState(() => thisMonthRange().start)
+  const [customEnd, setCustomEnd] = useState(() => thisMonthRange().end)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+
+  const { start, end } = getDateRange(dateTab, customStart, customEnd)
+
+  const totalLabel =
+    dateTab === 'this_month' ? 'Total spent this month'
+    : dateTab === 'this_week' ? 'Total spent this week'
+    : dateTab === 'last_month' ? 'Total spent last month'
+    : `Total spent ${start} – ${end}`
+
   const { data: accounts = [], isLoading: loadingAccounts, error: accountsError } = useAccounts()
   const { data: liabilities = [], isLoading: loadingLiabs } = useLiabilities()
+  const syncMutation = useSyncTransactions()
   const { data: transactions = [], isLoading: loadingTxns } = useTransactions({
     start_date: start,
     end_date: end,
     limit: 500,
   })
 
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-
-  const loading = loadingAccounts || loadingLiabs || loadingTxns
+  const loading = loadingAccounts || loadingLiabs
   const error = accountsError
 
   // Split Plaid accounts into asset accounts (depository, investment, etc.)
@@ -103,15 +142,15 @@ export default function DashboardPage() {
   const spendingData = groupByCategory(transactions, depositoryAccountNames)
 
   if (loading) {
-    return <p className="text-gray-400 text-sm py-16 text-center">Loading dashboard…</p>
+    return <p className="text-cream-muted text-sm py-16 text-center">Loading dashboard…</p>
   }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <h1 className="text-2xl font-semibold text-cream">Dashboard</h1>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+        <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger">
           {error instanceof Error ? error.message : 'Failed to load data'}
         </div>
       )}
@@ -121,30 +160,30 @@ export default function DashboardPage() {
         <StatCard
           label="Net Worth"
           value={netWorth}
-          color={netWorth >= 0 ? 'text-green-600' : 'text-red-500'}
+          color={netWorth >= 0 ? 'text-accent' : 'text-danger'}
         />
-        <StatCard label="Total Assets" value={totalAssets} color="text-blue-600" />
-        <StatCard label="Total Debt" value={totalDebt} color="text-red-400" />
+        <StatCard label="Total Assets" value={totalAssets} color="text-accent" />
+        <StatCard label="Total Debt" value={totalDebt} color="text-warning-display" />
       </div>
 
       {/* Connected Accounts */}
       {(accounts.length > 0 || liabilities.length > 0) && (
-        <section className="bg-white rounded-2xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold mb-4">Accounts</h2>
+        <section className="app-panel rounded-3xl p-6">
+          <h2 className="text-base font-semibold text-cream mb-4">Accounts</h2>
 
           {assetAccounts.length > 0 && (
             <>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Assets</p>
-              <ul className="divide-y divide-gray-100 mb-4">
+              <p className="text-xs font-medium text-cream-muted uppercase tracking-wide mb-2">Assets</p>
+              <ul className="divide-y divide-surface-border mb-4">
                 {assetAccounts.map((a) => (
                   <li key={a.id} className="flex items-center justify-between py-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{a.account_name}</p>
-                      <p className="text-xs text-gray-400 capitalize">
+                      <p className="text-sm font-medium text-cream">{a.account_name}</p>
+                      <p className="text-xs text-cream-muted capitalize">
                         {a.institution_name ?? ''} · {a.account_type}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-blue-600">${fmt(a.current_balance ?? 0)}</p>
+                    <p className="text-sm font-semibold text-accent-text dark:text-accent">${fmt(a.current_balance ?? 0)}</p>
                   </li>
                 ))}
               </ul>
@@ -153,28 +192,28 @@ export default function DashboardPage() {
 
           {(debtAccounts.length > 0 || liabilities.length > 0) && (
             <>
-              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Debt</p>
-              <ul className="divide-y divide-gray-100">
+              <p className="text-xs font-medium text-cream-muted uppercase tracking-wide mb-2">Debt</p>
+              <ul className="divide-y divide-surface-border">
                 {debtAccounts.map((a) => (
                   <li key={a.id} className="flex items-center justify-between py-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{a.account_name}</p>
-                      <p className="text-xs text-gray-400 capitalize">
+                      <p className="text-sm font-medium text-cream">{a.account_name}</p>
+                      <p className="text-xs text-cream-muted capitalize">
                         {a.institution_name ?? ''} · {a.account_type}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-red-500">${fmt(a.current_balance ?? 0)}</p>
+                    <p className="text-sm font-semibold text-warning">${fmt(a.current_balance ?? 0)}</p>
                   </li>
                 ))}
                 {liabilities.map((l) => (
                   <li key={l.id} className="flex items-center justify-between py-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{l.name}</p>
-                      <p className="text-xs text-gray-400 capitalize">
+                      <p className="text-sm font-medium text-cream">{l.name}</p>
+                      <p className="text-xs text-cream-muted capitalize">
                         Manual · {l.type ? l.type.replace(/_/g, ' ') : 'debt'}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-red-500">${fmt(l.balance)}</p>
+                    <p className="text-sm font-semibold text-warning">${fmt(l.balance)}</p>
                   </li>
                 ))}
               </ul>
@@ -184,20 +223,89 @@ export default function DashboardPage() {
       )}
 
       {/* Spending Chart */}
-      <section className="bg-white rounded-2xl border border-gray-200 p-6">
-        <h2 className="text-base font-semibold mb-4">Spending This Month</h2>
-        {spendingData.length > 0 ? (
+      <section className="app-panel rounded-3xl p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-base font-semibold text-cream">Spending</h2>
+          {/* Date range tabs */}
+          <div className="flex items-center gap-1 rounded-2xl border border-surface-border bg-surface/85 p-1 text-sm">
+            {([
+              ['this_month', 'This Month'],
+              ['this_week', 'This Week'],
+              ['last_month', 'Last Month'],
+              ['custom', 'Custom'],
+            ] as [DateTab, string][]).map(([tab, label]) => (
+              <button
+                key={tab}
+                onClick={() => { setDateTab(tab); setSelectedCategory(null) }}
+                className={`px-3 py-1 rounded-md transition-colors ${
+                  dateTab === tab
+                    ? 'bg-surface-raised text-cream shadow-sm font-medium'
+                    : 'text-cream-muted hover:text-cream'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Custom date pickers */}
+        {dateTab === 'custom' && (
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <label className="flex items-center gap-2 text-sm text-cream-muted">
+              From
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="border border-surface-border bg-surface rounded-md px-2 py-1 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-cream-muted">
+              To
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="border border-surface-border bg-surface rounded-md px-2 py-1 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </label>
+          </div>
+        )}
+
+        {loadingTxns ? (
+          <p className="text-sm text-cream-muted text-center py-8">Loading…</p>
+        ) : spendingData.length > 0 ? (
           <SpendingChart
             data={spendingData}
             selectedCategory={selectedCategory}
             onCategoryClick={(cat) =>
               setSelectedCategory((prev) => (prev === cat ? null : cat))
             }
+            totalLabel={totalLabel}
           />
+        ) : accounts.length > 0 ? (
+          <p className="text-sm text-cream-muted text-center py-8">
+            No spending data for this period.{' '}
+            <button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="text-accent-text dark:text-accent hover:underline disabled:opacity-50"
+            >
+              {syncMutation.isPending ? 'Syncing…' : 'Resync'}
+            </button>
+            {' '}or{' '}
+            <Link href="/settings" className="text-accent-text dark:text-accent hover:underline">
+              connect another account
+            </Link>
+            .
+          </p>
         ) : (
-          <p className="text-sm text-gray-400 text-center py-8">
-            No spending data yet.{' '}
-            <Link href="/settings" className="text-blue-500 hover:underline">
+          <p className="text-sm text-cream-muted text-center py-8">
+            No spending data for this period.{' '}
+            <Link href="/settings" className="text-accent-text dark:text-accent hover:underline">
               Connect a bank account
             </Link>{' '}
             to get started.
@@ -209,13 +317,13 @@ export default function DashboardPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">Recent Transactions</h2>
+            <h2 className="text-base font-semibold text-cream">Recent Transactions</h2>
             {selectedCategory && (
-              <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent-text dark:text-accent">
                 {selectedCategory}
                 <button
                   onClick={() => setSelectedCategory(null)}
-                  className="ml-0.5 hover:text-blue-900"
+                  className="ml-0.5 hover:text-accent-text dark:hover:text-accent-hover"
                   aria-label="Clear filter"
                 >
                   &times;
@@ -223,7 +331,7 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
-          <Link href="/transactions" className="text-sm text-blue-500 hover:underline">
+          <Link href="/transactions" className="text-sm text-accent-text dark:text-accent hover:underline">
             View all
           </Link>
         </div>
@@ -247,8 +355,8 @@ function StatCard({
   color: string
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
+    <div className="app-panel rounded-2xl p-5">
+      <p className="text-xs text-cream-muted mb-1">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>
         {value < 0 ? '-' : ''}${fmt(Math.abs(value))}
       </p>

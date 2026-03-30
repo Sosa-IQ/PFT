@@ -87,22 +87,22 @@ export default function GoalsPage() {
 
   const saving = createGoal.isPending || updateGoalMut.isPending
 
-  if (isLoading) return <p className="text-gray-400 text-sm py-16 text-center">Loading…</p>
+  if (isLoading) return <p className="text-cream-muted text-sm py-16 text-center">Loading…</p>
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Savings Goals</h1>
+        <h1 className="text-2xl font-semibold text-cream">Savings Goals</h1>
         <button
           onClick={openAdd}
-          className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
         >
           + New Goal
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+        <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm text-danger">
           {error instanceof Error ? error.message : 'Failed to load goals'}
         </div>
       )}
@@ -111,26 +111,26 @@ export default function GoalsPage() {
       {showForm && (
         <form
           onSubmit={handleSave}
-          className="bg-white rounded-xl border border-gray-200 p-5 space-y-4"
+          className="app-panel rounded-2xl p-5 space-y-4"
         >
-          <h2 className="font-semibold text-gray-800">
+          <h2 className="font-semibold text-cream">
             {editingId ? 'Edit Goal' : 'New Goal'}
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Goal name</label>
+              <label className="block text-sm font-medium text-cream mb-1">Goal name</label>
               <input
                 type="text"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 required
                 placeholder="e.g. Emergency Fund"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border rounded-lg px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Target amount ($)</label>
+              <label className="block text-sm font-medium text-cream mb-1">Target amount ($)</label>
               <input
                 type="number"
                 value={formTarget}
@@ -139,11 +139,11 @@ export default function GoalsPage() {
                 min="0.01"
                 step="0.01"
                 placeholder="5000.00"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border rounded-lg px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Current amount ($)</label>
+              <label className="block text-sm font-medium text-cream mb-1">Current amount ($)</label>
               <input
                 type="number"
                 value={formCurrent}
@@ -151,36 +151,36 @@ export default function GoalsPage() {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border rounded-lg px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Deadline <span className="text-gray-400">(optional)</span>
+              <label className="block text-sm font-medium text-cream mb-1">
+                Deadline <span className="text-cream-muted">(optional)</span>
               </label>
               <input
                 type="date"
                 value={formDeadline}
                 onChange={(e) => setFormDeadline(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-surface-border rounded-lg px-3 py-2 text-sm bg-surface text-cream focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
           </div>
 
-          {formError && <p className="text-sm text-red-500">{formError}</p>}
+          {formError && <p className="text-sm text-danger">{formError}</p>}
 
           <div className="flex gap-3">
             <button
               type="submit"
               disabled={saving}
-              className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="text-gray-500 rounded-lg px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+              className="text-cream-muted rounded-lg px-4 py-2 text-sm hover:bg-surface-hover transition-colors"
             >
               Cancel
             </button>
@@ -190,7 +190,7 @@ export default function GoalsPage() {
 
       {/* Goal Cards */}
       {goals.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-12">
+        <p className="text-sm text-cream-muted text-center py-12">
           No savings goals yet. Create one to start tracking your progress.
         </p>
       ) : (

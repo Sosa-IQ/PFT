@@ -35,15 +35,46 @@ def sync_user_accounts(supabase: Client, user_id: str) -> dict:
     total_modified = 0
     total_removed = 0
 
+    # Group accounts by access token so we only call Plaid's balance endpoint
+    # once per Item (bank connection), not once per account.
+    items: dict[str, list[dict]] = {}
     for account in rows:
-        account_id = account["id"]
-        access_token = decrypt(account["plaid_access_token"])
-        cursor = account.get("sync_cursor")  # None on first sync
+        token = account["plaid_access_token"]
+        items.setdefault(token, []).append(account)
 
-        result = _sync_single_account(supabase, user_id, account_id, access_token, cursor)
-        total_added += result["added"]
-        total_modified += result["modified"]
-        total_removed += result["removed"]
+    for encrypted_token, item_accounts in items.items():
+        access_token = decrypt(encrypted_token)
+
+        # Refresh balances for all accounts in this Item.
+        try:
+            fresh_accounts = plaid_service.get_accounts(access_token)
+            balance_by_plaid_id = {a["plaid_account_id"]: a for a in fresh_accounts}
+            for acct_row in item_accounts:
+                plaid_acct = (
+                    supabase.table("accounts")
+                    .select("plaid_account_id")
+                    .eq("id", acct_row["id"])
+                    .single()
+                    .execute()
+                    .data
+                )
+                if plaid_acct and plaid_acct["plaid_account_id"] in balance_by_plaid_id:
+                    fresh = balance_by_plaid_id[plaid_acct["plaid_account_id"]]
+                    supabase.table("accounts").update({
+                        "current_balance": fresh["current_balance"],
+                        "available_balance": fresh["available_balance"],
+                    }).eq("id", acct_row["id"]).execute()
+        except Exception:
+            pass  # Don't let a balance refresh failure abort the transaction sync
+
+        for account in item_accounts:
+            account_id = account["id"]
+            cursor = account.get("sync_cursor")  # None on first sync
+
+            result = _sync_single_account(supabase, user_id, account_id, access_token, cursor)
+            total_added += result["added"]
+            total_modified += result["modified"]
+            total_removed += result["removed"]
 
     return {
         "added": total_added,

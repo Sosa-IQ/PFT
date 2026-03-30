@@ -1,17 +1,17 @@
 'use client'
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { useTheme } from './ThemeProvider'
 
-// 8 distinct colors for spending categories.
 const COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#06b6d4', // cyan
-  '#f97316', // orange
-  '#ec4899', // pink
+  '#67e7a9',
+  '#f1db8f',
+  '#8ea2ff',
+  '#ff8b88',
+  '#78d7ff',
+  '#cf9bff',
+  '#f6b56d',
+  '#a5efcb',
 ]
 
 function fmt(n: number) {
@@ -22,6 +22,7 @@ interface Props {
   data: { category: string; total: number }[]
   selectedCategory?: string | null
   onCategoryClick?: (category: string) => void
+  totalLabel?: string
 }
 
 function LegendColumn({
@@ -48,8 +49,8 @@ function LegendColumn({
               style={{ backgroundColor: item.color }}
             />
             <div className="min-w-0">
-              <p className="text-xs text-gray-600 truncate">{item.category}</p>
-              <p className="text-xs font-semibold text-gray-800">${fmt(item.total)}</p>
+              <p className="text-xs text-cream-muted truncate">{item.category}</p>
+              <p className="text-xs font-semibold text-cream">${fmt(item.total)}</p>
             </div>
           </div>
         )
@@ -58,7 +59,8 @@ function LegendColumn({
   )
 }
 
-export default function SpendingChart({ data, selectedCategory, onCategoryClick }: Props) {
+export default function SpendingChart({ data, selectedCategory, onCategoryClick, totalLabel = 'Total spent' }: Props) {
+  const { theme } = useTheme()
   const total = data.reduce((sum, d) => sum + d.total, 0)
 
   const itemsWithColor = data.map((d, i) => ({
@@ -85,9 +87,11 @@ export default function SpendingChart({ data, selectedCategory, onCategoryClick 
                 cy="50%"
                 innerRadius={55}
                 outerRadius={85}
-                paddingAngle={2}
+                paddingAngle={3}
                 onClick={(_, index) => onCategoryClick?.(data[index].category)}
                 className="cursor-pointer"
+                stroke="rgba(9, 17, 29, 0.55)"
+                strokeWidth={2}
               >
                 {data.map((d, i) => (
                   <Cell
@@ -97,7 +101,23 @@ export default function SpendingChart({ data, selectedCategory, onCategoryClick 
                   />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: theme === 'dark' ? '#121c31' : '#ffffff',
+                  border: theme === 'dark'
+                    ? '1px solid rgba(142, 155, 183, 0.2)'
+                    : '1px solid rgba(220, 225, 236, 0.95)',
+                  borderRadius: '14px',
+                  color: theme === 'dark' ? '#f4efe2' : '#17202e',
+                  boxShadow: theme === 'dark'
+                    ? '0 16px 40px rgba(5, 11, 25, 0.22)'
+                    : '0 10px 24px rgba(31, 42, 68, 0.08)',
+                }}
+                labelStyle={{ color: theme === 'dark' ? '#f4efe2' : '#17202e' }}
+                itemStyle={{ color: theme === 'dark' ? '#f4efe2' : '#17202e' }}
+                cursor={{ fill: theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(23,32,46,0.05)' }}
+                formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, name]}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -105,9 +125,9 @@ export default function SpendingChart({ data, selectedCategory, onCategoryClick 
           <LegendColumn items={rightItems} selectedCategory={selectedCategory} onCategoryClick={onCategoryClick} />
         )}
       </div>
-      <p className="text-center text-sm text-gray-500">
-        Total spent this month:{' '}
-        <span className="font-semibold text-gray-800">${fmt(total)}</span>
+      <p className="text-center text-sm text-cream-muted">
+        {totalLabel}:{' '}
+        <span className="font-semibold text-cream">${fmt(total)}</span>
       </p>
     </div>
   )

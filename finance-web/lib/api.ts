@@ -36,8 +36,25 @@ export interface Transaction {
 }
 
 export interface Budget {
-  category: string
-  monthly_limit: number
+  id: string
+  name: string
+  date_range_type: 'custom' | 'weekly' | 'biweekly' | 'monthly'
+  start_date: string | null
+  end_date: string | null
+  created_at: string
+  balance?: number
+}
+
+export interface BudgetLine {
+  id: string
+  budget_id: string
+  line_type: 'income' | 'expense'
+  name: string
+  categories: string[]
+  planned_amount: number
+  sort_order: number | null
+  computed_actual: number | null       // auto-calculated from transactions
+  excluded_transaction_ids: string[]   // transactions excluded from tracking
 }
 
 export interface Goal {
@@ -86,24 +103,113 @@ export async function getBudgets(token: string): Promise<Budget[]> {
 
 export async function createBudget(
   token: string,
-  data: { category: string; monthly_limit: number },
+  data: {
+    name: string
+    date_range_type: 'custom' | 'weekly' | 'biweekly' | 'monthly'
+    start_date?: string
+    end_date?: string
+  },
 ): Promise<Budget> {
   return apiFetch<Budget>('/budgets/', token, { method: 'POST', body: JSON.stringify(data) })
 }
 
 export async function updateBudget(
   token: string,
-  category: string,
-  monthly_limit: number,
+  id: string,
+  data: { name?: string; date_range_type?: string; start_date?: string; end_date?: string },
 ): Promise<Budget> {
-  return apiFetch<Budget>(`/budgets/${encodeURIComponent(category)}`, token, {
+  return apiFetch<Budget>(`/budgets/${id}`, token, {
     method: 'PUT',
-    body: JSON.stringify({ monthly_limit }),
+    body: JSON.stringify(data),
   })
 }
 
-export async function deleteBudget(token: string, category: string): Promise<void> {
-  return apiFetch<void>(`/budgets/${encodeURIComponent(category)}`, token, { method: 'DELETE' })
+export async function deleteBudget(token: string, id: string): Promise<void> {
+  return apiFetch<void>(`/budgets/${id}`, token, { method: 'DELETE' })
+}
+
+// ── Budget Lines ────────────────────────────────────────────────────────────
+
+export async function getBudgetLines(token: string, budgetId: string): Promise<BudgetLine[]> {
+  return apiFetch<BudgetLine[]>(`/budgets/${budgetId}/lines`, token)
+}
+
+export async function createBudgetLine(
+  token: string,
+  budgetId: string,
+  data: {
+    line_type: 'income' | 'expense'
+    name: string
+    categories?: string[]
+    planned_amount: number
+  },
+): Promise<BudgetLine> {
+  return apiFetch<BudgetLine>(`/budgets/${budgetId}/lines`, token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateBudgetLine(
+  token: string,
+  budgetId: string,
+  lineId: string,
+  data: { name?: string; categories?: string[]; planned_amount?: number },
+): Promise<BudgetLine> {
+  return apiFetch<BudgetLine>(`/budgets/${budgetId}/lines/${lineId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteBudgetLine(
+  token: string,
+  budgetId: string,
+  lineId: string,
+): Promise<void> {
+  return apiFetch<void>(`/budgets/${budgetId}/lines/${lineId}`, token, { method: 'DELETE' })
+}
+
+export async function reorderBudgetLines(
+  token: string,
+  budgetId: string,
+  items: { id: string; sort_order: number }[],
+): Promise<void> {
+  return apiFetch<void>(`/budgets/${budgetId}/lines/reorder`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(items),
+  })
+}
+
+export async function excludeTransaction(
+  token: string,
+  budgetId: string,
+  lineId: string,
+  transactionId: string,
+): Promise<void> {
+  await apiFetch<unknown>(`/budgets/${budgetId}/lines/${lineId}/excluded-transactions`, token, {
+    method: 'POST',
+    body: JSON.stringify({ transaction_id: transactionId }),
+  })
+}
+
+export async function includeTransaction(
+  token: string,
+  budgetId: string,
+  lineId: string,
+  transactionId: string,
+): Promise<void> {
+  return apiFetch<void>(
+    `/budgets/${budgetId}/lines/${lineId}/excluded-transactions/${transactionId}`,
+    token,
+    { method: 'DELETE' },
+  )
+}
+
+// ── Transaction Categories ─────────────────────────────────────────────────
+
+export async function getTransactionCategories(token: string): Promise<string[]> {
+  return apiFetch<string[]>('/transactions/categories', token)
 }
 
 // ── Goals ──────────────────────────────────────────────────────────────────
