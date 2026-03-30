@@ -78,7 +78,12 @@
   }
 
   .app-shell ::selection {
-    background: rgba(var(--app-accent), 0.28);
+    background: rgb(var(--app-accent) / 0.28);
+    color: rgb(var(--app-text));
+  }
+
+  .app-shell ::-moz-selection {
+    background: rgb(var(--app-accent) / 0.28);
     color: rgb(var(--app-text));
   }
 
