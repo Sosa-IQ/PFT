@@ -15,8 +15,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   }, [router])
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4">
-      {children}
+    <main className="app-shell min-h-screen px-4">
+      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center py-12">
+        {children}
+      </div>
     </main>
   )
 }

@@ -61,23 +61,24 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+    <main className="app-shell min-h-screen px-4">
+      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center py-12">
+        <div className="app-panel w-full max-w-md rounded-3xl p-8 sm:p-10">
         {status === 'waiting' && (
-          <p className="text-sm text-gray-500 text-center">Verifying reset link…</p>
+          <p className="text-center text-sm text-cream-muted">Verifying reset link…</p>
         )}
 
         {status === 'invalid' && (
           <>
-            <h1 className="text-2xl font-semibold mb-2">Link expired</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="mb-2 text-2xl font-semibold text-cream">Link expired</h1>
+            <p className="text-sm text-cream-muted">
               This reset link is invalid or has expired.{' '}
               <button
                 onClick={async () => {
                   await supabase.auth.signOut()
                   router.replace('/login')
                 }}
-                className="text-blue-600 hover:underline"
+                className="text-accent-text dark:text-accent hover:underline"
               >
                 Request a new one.
               </button>
@@ -87,46 +88,47 @@ export default function ResetPasswordPage() {
 
         {status === 'ready' && (
           <>
-            <h1 className="text-2xl font-semibold mb-1">Set new password</h1>
-            <p className="text-sm text-gray-500 mb-6">Choose a new password for your account.</p>
+            <h1 className="mb-1 text-2xl font-semibold text-cream">Set new password</h1>
+            <p className="mb-6 text-sm text-cream-muted">Choose a new password for your account.</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">New password</label>
+                <label className="mb-1 block text-sm font-medium text-cream">New password</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-surface-border bg-surface px-3 py-2.5 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm password</label>
+                <label className="mb-1 block text-sm font-medium text-cream">Confirm password</label>
                 <input
                   type="password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-xl border border-surface-border bg-surface px-3 py-2.5 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
 
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && <p className="text-sm text-danger">{error}</p>}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="w-full rounded-xl bg-accent py-2.5 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
                 {loading ? 'Updating…' : 'Update password'}
               </button>
             </form>
           </>
         )}
+      </div>
       </div>
     </main>
   )
