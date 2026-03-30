@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -90,22 +93,42 @@ const stats = [
 ]
 
 export default function LandingPage() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false)
+
   return (
     <div className="app-shell min-h-screen text-cream transition-colors duration-200">
-
       {/* Nav */}
       <nav className="fixed inset-x-0 top-0 z-50 border-b border-surface-border bg-surface-sidebar/85 backdrop-blur-md transition-colors duration-200">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
           <div className="flex items-center gap-2">
             <Image src="/icon.png" alt="BudgIt Buddy" width={32} height={32} className="rounded-lg" />
             <span className="text-lg font-bold tracking-tight"><span className="text-accent">BudgIt</span> <span className="text-warning-display">Buddy</span></span>
           </div>
-          <div className="hidden md:flex items-center gap-8 text-sm text-cream-muted">
-            <a href="#features" className="font-medium text-accent-text dark:text-accent transition-colors hover:text-accent-hover">Features</a>
-            <a href="#stats" className="transition-colors hover:text-cream">Pricing</a>
-            <a href="#cta" className="transition-colors hover:text-cream">About</a>
+          <div className="absolute left-1/2 hidden md:block">
+            <div className="relative text-xs text-cream-muted sm:text-sm">
+              <a
+                href="#features"
+                className="absolute right-1/2 top-1/2 mr-8 -translate-y-1/2 font-medium text-accent-text transition-colors hover:text-accent-hover dark:text-accent sm:mr-10 md:mr-12"
+              >
+                Features
+              </a>
+              <a
+                href="#stats"
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-colors hover:text-cream"
+              >
+                Pricing
+              </a>
+              <a
+                href="#cta"
+                className="absolute left-1/2 top-1/2 ml-8 -translate-y-1/2 transition-colors hover:text-cream sm:ml-10 md:ml-12"
+              >
+                About
+              </a>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hidden items-center justify-end gap-2 md:flex">
             <ThemeToggle className="border border-surface-border bg-surface-card text-cream-muted hover:bg-surface-hover hover:text-cream dark:text-cream-muted dark:hover:bg-surface-hover dark:hover:text-cream" />
             <Link href="/login" className="px-4 py-2 text-sm text-cream-muted transition-colors hover:text-cream">
               Sign In
@@ -117,7 +140,69 @@ export default function LandingPage() {
               Get Started
             </Link>
           </div>
+          <div className="flex items-center justify-end gap-2 md:hidden">
+            <ThemeToggle className="border border-surface-border bg-surface-card text-cream-muted hover:bg-surface-hover hover:text-cream dark:text-cream-muted dark:hover:bg-surface-hover dark:hover:text-cream" />
+            <button
+              type="button"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav-menu"
+              aria-label="Open navigation menu"
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-surface-border bg-surface-card text-cream transition-colors hover:bg-surface-hover"
+            >
+              <span className="sr-only">Menu</span>
+              <span className="flex flex-col gap-1.5">
+                <span className="h-0.5 w-5 rounded-full bg-current" />
+                <span className="h-0.5 w-5 rounded-full bg-current" />
+                <span className="h-0.5 w-5 rounded-full bg-current" />
+              </span>
+            </button>
+          </div>
         </div>
+        {isMobileMenuOpen && (
+          <div
+            id="mobile-nav-menu"
+            className="border-t border-surface-border bg-surface-sidebar/95 px-6 py-4 md:hidden"
+          >
+            <div className="flex flex-col gap-2 text-sm text-cream">
+              <a
+                href="#features"
+                onClick={closeMobileMenu}
+                className="rounded-lg px-3 py-2 font-medium text-accent-text transition-colors hover:bg-surface-hover hover:text-accent-hover dark:text-accent"
+              >
+                Features
+              </a>
+              <a
+                href="#stats"
+                onClick={closeMobileMenu}
+                className="rounded-lg px-3 py-2 transition-colors hover:bg-surface-hover hover:text-cream"
+              >
+                Pricing
+              </a>
+              <a
+                href="#cta"
+                onClick={closeMobileMenu}
+                className="rounded-lg px-3 py-2 transition-colors hover:bg-surface-hover hover:text-cream"
+              >
+                About
+              </a>
+              <Link
+                href="/login"
+                onClick={closeMobileMenu}
+                className="rounded-lg px-3 py-2 transition-colors hover:bg-surface-hover hover:text-cream"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/signup"
+                onClick={closeMobileMenu}
+                className="rounded-lg bg-accent px-3 py-2 text-center font-semibold text-accent-contrast transition-colors hover:bg-accent-hover"
+              >
+                Get Started
+              </Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero */}
@@ -134,7 +219,7 @@ export default function LandingPage() {
           The editorial financial dashboard that turns complex spreadsheets
           into a beautiful, intuitive journey toward wealth.
         </p>
-        <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">
+        <div className="mt-10 flex flex-col items-center gap-4 min-[480px]:hidden">
           <Link
             href="/signup"
             className="rounded-xl bg-accent px-7 py-3 text-sm font-semibold text-accent-contrast shadow-md shadow-[rgba(var(--app-accent),0.2)] transition-colors hover:bg-accent-hover"
@@ -144,6 +229,20 @@ export default function LandingPage() {
           <Link
             href="/login"
             className="rounded-xl border border-surface-border px-7 py-3 text-sm font-semibold text-cream transition-colors hover:border-cream-muted hover:bg-surface-card"
+          >
+            View Demo
+          </Link>
+        </div>
+        <div className="relative mt-10 hidden h-12 min-[480px]:block">
+          <Link
+            href="/signup"
+            className="absolute right-1/2 mr-2 rounded-xl bg-accent px-7 py-3 text-sm font-semibold text-accent-contrast shadow-md shadow-[rgba(var(--app-accent),0.2)] transition-colors hover:bg-accent-hover"
+          >
+            Start for Free
+          </Link>
+          <Link
+            href="/login"
+            className="absolute left-1/2 ml-2 rounded-xl border border-surface-border px-7 py-3 text-sm font-semibold text-cream transition-colors hover:border-cream-muted hover:bg-surface-card"
           >
             View Demo
           </Link>
