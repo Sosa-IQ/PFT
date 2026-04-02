@@ -8,10 +8,10 @@ import ThemeToggle from '@/components/ThemeToggle'
 
 // ── Contact form ──────────────────────────────────────────────────────────────
 
-const CONTACT_REASONS = ['Feature Request', 'Bug Report', 'Support', 'Other'] as const
+const CONTACT_SUBJECTS = ['Feature Request', 'Bug Report', 'Support', 'Other'] as const
 
 function ContactSection() {
-  const [form, setForm] = useState({ name: '', email: '', reason: '', message: '' })
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -35,7 +35,7 @@ function ContactSection() {
         setStatus('error')
       } else {
         setStatus('success')
-        setForm({ name: '', email: '', reason: '', message: '' })
+        setForm({ name: '', email: '', subject: '', message: '' })
       }
     } catch {
       setErrorMsg('Network error. Please try again.')
@@ -105,19 +105,19 @@ function ContactSection() {
             </div>
 
             <div>
-              <label htmlFor="contact-reason" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-cream-muted">
-                Reason
+              <label htmlFor="contact-subject" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-cream-muted">
+                Subject
               </label>
               <select
-                id="contact-reason"
-                name="reason"
+                id="contact-subject"
+                name="subject"
                 required
-                value={form.reason}
+                value={form.subject}
                 onChange={handleChange}
                 className="w-full rounded-xl border border-surface-border bg-surface px-4 py-3 text-sm text-cream outline-none transition-colors focus:border-accent/60 focus:ring-1 focus:ring-accent/30 disabled:opacity-50"
               >
-                <option value="" disabled>Select a reason…</option>
-                {CONTACT_REASONS.map((r) => (
+                <option value="" disabled>Select a subject…</option>
+                {CONTACT_SUBJECTS.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>

@@ -24,7 +24,7 @@ from middleware.auth import get_supabase_client
 
 router = APIRouter(prefix="/contact", tags=["contact"])
 
-_VALID_REASONS = {"Feature Request", "Bug Report", "Support", "Other"}
+_VALID_SUBJECTS = {"Feature Request", "Bug Report", "Support", "Other"}  # mirrors frontend CONTACT_SUBJECTS
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
@@ -35,10 +35,10 @@ _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 class ContactRequest(BaseModel):
     name: str
     email: str
-    reason: str
+    subject: str
     message: str
 
-    @field_validator("name", "email", "reason", "message")
+    @field_validator("name", "email", "subject", "message")
     @classmethod
     def not_blank(cls, v: str) -> str:
         if not v or not v.strip():
@@ -52,11 +52,11 @@ class ContactRequest(BaseModel):
             raise ValueError("Invalid email address.")
         return v.lower()
 
-    @field_validator("reason")
+    @field_validator("subject")
     @classmethod
-    def valid_reason(cls, v: str) -> str:
-        if v not in _VALID_REASONS:
-            raise ValueError(f"reason must be one of: {', '.join(sorted(_VALID_REASONS))}")
+    def valid_subject(cls, v: str) -> str:
+        if v not in _VALID_SUBJECTS:
+            raise ValueError(f"subject must be one of: {', '.join(sorted(_VALID_SUBJECTS))}")
         return v
 
 
@@ -89,7 +89,7 @@ def _send_confirmation(ses, payload: ContactRequest) -> None:
                         "Thanks for reaching out! We've received your message and will get back to you as soon as possible.",
                         "",
                         "--- Your submission ---",
-                        f"Reason: {payload.reason}",
+                        f"Subject: {payload.subject}",
                         f"Message: {payload.message}",
                         "----------------------",
                         "",
@@ -106,7 +106,7 @@ def _send_confirmation(ses, payload: ContactRequest) -> None:
   <p>Hi <strong>{payload.name}</strong>,</p>
   <p>Thanks for reaching out! We've received your message and will get back to you as soon as possible.</p>
   <div style="background:#f5f5f5;border-radius:8px;padding:16px 20px;margin:24px 0;">
-    <p style="margin:0 0 8px;font-size:13px;color:#555;"><strong>Reason:</strong> {payload.reason}</p>
+    <p style="margin:0 0 8px;font-size:13px;color:#555;"><strong>Subject:</strong> {payload.subject}</p>
     <p style="margin:0;font-size:13px;color:#555;"><strong>Message:</strong><br>{payload.message.replace(chr(10), '<br>')}</p>
   </div>
   <p style="font-size:13px;color:#888;">Best,<br>The BudgIt Buddy Team</p>
@@ -127,7 +127,7 @@ def _send_owner_notification(ses, payload: ContactRequest) -> None:
         ReplyToAddresses=[payload.email],
         Destination={"ToAddresses": [to_email]},
         Message={
-            "Subject": {"Data": f"[Contact Form] {payload.reason} — from {payload.name}"},
+            "Subject": {"Data": f"[Contact Form] {payload.subject} — from {payload.name}"},
             "Body": {
                 "Text": {
                     "Data": "\n".join([
@@ -135,7 +135,7 @@ def _send_owner_notification(ses, payload: ContactRequest) -> None:
                         "",
                         f"Name:    {payload.name}",
                         f"Email:   {payload.email}",
-                        f"Reason:  {payload.reason}",
+                        f"Subject: {payload.subject}",
                         "",
                         "Message:",
                         payload.message,
@@ -150,7 +150,7 @@ def _send_owner_notification(ses, payload: ContactRequest) -> None:
   <table style="width:100%;border-collapse:collapse;font-size:14px;">
     <tr><td style="padding:6px 0;color:#555;width:80px;"><strong>Name</strong></td><td style="padding:6px 0;">{payload.name}</td></tr>
     <tr><td style="padding:6px 0;color:#555;"><strong>Email</strong></td><td style="padding:6px 0;"><a href="mailto:{payload.email}">{payload.email}</a></td></tr>
-    <tr><td style="padding:6px 0;color:#555;"><strong>Reason</strong></td><td style="padding:6px 0;">{payload.reason}</td></tr>
+    <tr><td style="padding:6px 0;color:#555;"><strong>Subject</strong></td><td style="padding:6px 0;">{payload.subject}</td></tr>
   </table>
   <div style="background:#f5f5f5;border-radius:8px;padding:16px 20px;margin:20px 0;">
     <p style="margin:0;font-size:14px;">{payload.message.replace(chr(10), '<br>')}</p>
@@ -185,7 +185,7 @@ def submit_contact(
     supabase.table("contact_submissions").insert({
         "name":       payload.name,
         "email":      payload.email,
-        "reason":     payload.reason,
+        "subject":    payload.subject,
         "message":    payload.message,
         "ip_address": ip,
     }).execute()
