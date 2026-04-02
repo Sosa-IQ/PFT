@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import plaid, transactions, budgets, goals, liabilities
+from routers import plaid, transactions, budgets, goals, liabilities, contact
 
 load_dotenv()
 
@@ -53,6 +53,7 @@ app.include_router(transactions.router)
 app.include_router(budgets.router)
 app.include_router(goals.router)
 app.include_router(liabilities.router)
+app.include_router(contact.router)
 
 # ---------------------------------------------------------------------------
 # Health check (unauthenticated — used by load balancers/monitoring to confirm the app is up)

@@ -6,6 +6,157 @@ import Image from 'next/image'
 import { PieChart, Pie, Cell } from 'recharts'
 import ThemeToggle from '@/components/ThemeToggle'
 
+// ── Contact form ──────────────────────────────────────────────────────────────
+
+const CONTACT_REASONS = ['Feature Request', 'Bug Report', 'Support', 'Other'] as const
+
+function ContactSection() {
+  const [form, setForm] = useState({ name: '', email: '', reason: '', message: '' })
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setStatus('submitting')
+    setErrorMsg('')
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contact/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorMsg(data.error ?? 'Something went wrong.')
+        setStatus('error')
+      } else {
+        setStatus('success')
+        setForm({ name: '', email: '', reason: '', message: '' })
+      }
+    } catch {
+      setErrorMsg('Network error. Please try again.')
+      setStatus('error')
+    }
+  }
+
+  return (
+    <section id="contact" className="py-28 px-6">
+      <div className="app-panel mx-auto max-w-2xl rounded-3xl p-10 md:p-14">
+        <h2 className="mb-2 text-3xl font-extrabold text-cream md:text-4xl">Get in touch</h2>
+        <p className="mb-10 text-cream-muted leading-relaxed">
+          Have a question, spotted a bug, or want to share an idea? We&apos;d love to hear from you.
+        </p>
+
+        {status === 'success' ? (
+          <div className="flex flex-col items-center gap-4 py-10 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/15">
+              <svg className="h-7 w-7 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-cream">Message sent!</h3>
+            <p className="max-w-sm text-sm text-cream-muted">
+              Thanks for reaching out. Check your inbox — we&apos;ve sent a confirmation to your email and will follow up soon.
+            </p>
+            <button
+              onClick={() => setStatus('idle')}
+              className="mt-2 text-sm text-accent-text underline underline-offset-2 transition-colors hover:text-accent dark:text-accent"
+            >
+              Send another message
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label htmlFor="contact-name" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-cream-muted">
+                  Name
+                </label>
+                <input
+                  id="contact-name"
+                  name="name"
+                  type="text"
+                  required
+                  value={form.name}
+                  onChange={handleChange}
+                  placeholder="Your name"
+                  className="w-full rounded-xl border border-surface-border bg-surface px-4 py-3 text-sm text-cream placeholder-cream-muted/50 outline-none transition-colors focus:border-accent/60 focus:ring-1 focus:ring-accent/30"
+                />
+              </div>
+              <div>
+                <label htmlFor="contact-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-cream-muted">
+                  Email
+                </label>
+                <input
+                  id="contact-email"
+                  name="email"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={handleChange}
+                  placeholder="you@example.com"
+                  className="w-full rounded-xl border border-surface-border bg-surface px-4 py-3 text-sm text-cream placeholder-cream-muted/50 outline-none transition-colors focus:border-accent/60 focus:ring-1 focus:ring-accent/30"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="contact-reason" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-cream-muted">
+                Reason
+              </label>
+              <select
+                id="contact-reason"
+                name="reason"
+                required
+                value={form.reason}
+                onChange={handleChange}
+                className="w-full rounded-xl border border-surface-border bg-surface px-4 py-3 text-sm text-cream outline-none transition-colors focus:border-accent/60 focus:ring-1 focus:ring-accent/30 disabled:opacity-50"
+              >
+                <option value="" disabled>Select a reason…</option>
+                {CONTACT_REASONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="contact-message" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-cream-muted">
+                Message
+              </label>
+              <textarea
+                id="contact-message"
+                name="message"
+                required
+                rows={5}
+                value={form.message}
+                onChange={handleChange}
+                placeholder="Tell us what's on your mind…"
+                className="w-full resize-none rounded-xl border border-surface-border bg-surface px-4 py-3 text-sm text-cream placeholder-cream-muted/50 outline-none transition-colors focus:border-accent/60 focus:ring-1 focus:ring-accent/30"
+              />
+            </div>
+
+            {status === 'error' && (
+              <p className="text-sm text-red-400">{errorMsg}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={status === 'submitting'}
+              className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-contrast shadow-md shadow-[rgba(var(--app-accent),0.2)] transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {status === 'submitting' ? 'Sending…' : 'Send Message'}
+            </button>
+          </form>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ── Feature cards ────────────────────────────────────────────────────────────
 
 const features = [
@@ -385,10 +536,10 @@ export default function LandingPage() {
                 Pricing
               </a>
               <a
-                href="#cta"
+                href="#contact"
                 className="absolute left-1/2 top-1/2 ml-8 -translate-y-1/2 transition-colors hover:text-cream sm:ml-10 md:ml-12"
               >
-                About
+                Contact
               </a>
             </div>
           </div>
@@ -444,11 +595,11 @@ export default function LandingPage() {
                 Pricing
               </a>
               <a
-                href="#cta"
+                href="#contact"
                 onClick={closeMobileMenu}
                 className="rounded-lg px-3 py-2 transition-colors hover:bg-surface-hover hover:text-cream"
               >
-                About
+                Contact
               </a>
               <Link
                 href="/login"
@@ -585,22 +736,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section id="cta" className="py-28 px-6">
-        <div className="app-panel mx-auto max-w-2xl rounded-3xl p-14 text-center">
-          <h2 className="mb-4 text-3xl font-extrabold text-cream md:text-4xl">Ready to take control?</h2>
-          <p className="mb-10 leading-relaxed text-cream-muted">
-            Join thousands of people who have simplified their finances and achieved their goals with BudgIt Buddy.
-          </p>
-          <Link
-            href="/signup"
-            className="inline-block rounded-xl bg-accent px-8 py-3.5 font-bold text-accent-contrast transition-colors shadow-md shadow-[rgba(var(--app-accent),0.2)] hover:bg-accent-hover"
-          >
-            Get Started for Free
-          </Link>
-          <p className="mt-4 text-xs text-cream-muted">No credit card required. Cancel anytime.</p>
-        </div>
-      </section>
+      {/* Contact */}
+      <ContactSection />
 
       {/* Footer */}
       <footer className="border-t border-surface-border px-6 py-8 transition-colors">
