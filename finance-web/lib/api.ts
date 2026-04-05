@@ -84,10 +84,17 @@ export interface SyncResult {
 
 export async function getTransactions(
   token: string,
-  filters: { category?: string; start_date?: string; end_date?: string; limit?: number } = {},
+  filters: {
+    category?: string
+    uncategorized?: boolean
+    start_date?: string
+    end_date?: string
+    limit?: number
+  } = {},
 ): Promise<Transaction[]> {
   const params = new URLSearchParams()
   if (filters.category) params.set('category', filters.category)
+  if (filters.uncategorized) params.set('uncategorized', 'true')
   if (filters.start_date) params.set('start_date', filters.start_date)
   if (filters.end_date) params.set('end_date', filters.end_date)
   if (filters.limit) params.set('limit', String(filters.limit))
@@ -210,6 +217,82 @@ export async function includeTransaction(
 
 export async function getTransactionCategories(token: string): Promise<string[]> {
   return apiFetch<string[]>('/transactions/categories', token)
+}
+
+// ── Categories (full management) ───────────────────────────────────────────
+
+export interface Category {
+  name: string
+  transaction_count: number
+  is_custom: boolean
+  color: string | null
+}
+
+export interface RecategorizeResult {
+  log_id: string
+  affected_count: number
+  description: string
+}
+
+export interface CategoryChangeLog {
+  id: string
+  changed_at: string
+  description: string
+  affected_count: number
+}
+
+export async function getCategories(token: string): Promise<Category[]> {
+  return apiFetch<Category[]>('/categories/', token)
+}
+
+export async function createCategory(
+  token: string,
+  name: string,
+  color?: string,
+): Promise<Category> {
+  return apiFetch<Category>('/categories/', token, {
+    method: 'POST',
+    body: JSON.stringify({ name, color: color ?? null }),
+  })
+}
+
+export async function updateCategory(
+  token: string,
+  name: string,
+  color: string | null,
+  newName?: string,
+): Promise<Category> {
+  return apiFetch<Category>(`/categories/${encodeURIComponent(name)}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify({ color, ...(newName ? { new_name: newName } : {}) }),
+  })
+}
+
+export async function deleteCategory(token: string, name: string): Promise<void> {
+  return apiFetch<void>(`/categories/${encodeURIComponent(name)}`, token, { method: 'DELETE' })
+}
+
+export async function recategorizeTransaction(
+  token: string,
+  transactionId: string,
+  data: { new_category: string; apply_to_same_merchant?: boolean; apply_to_old_category?: boolean },
+): Promise<RecategorizeResult> {
+  return apiFetch<RecategorizeResult>(`/categories/transactions/${transactionId}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function getCategoryHistory(token: string): Promise<CategoryChangeLog[]> {
+  return apiFetch<CategoryChangeLog[]>('/categories/history', token)
+}
+
+export async function undoCategoryChange(token: string, logId: string): Promise<void> {
+  await apiFetch<unknown>(`/categories/history/${logId}/undo`, token, { method: 'POST' })
+}
+
+export async function clearCategoryHistory(token: string): Promise<void> {
+  return apiFetch<void>('/categories/history/all', token, { method: 'DELETE' })
 }
 
 // ── Goals ──────────────────────────────────────────────────────────────────

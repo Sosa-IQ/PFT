@@ -38,6 +38,7 @@ class Transaction(BaseModel):
 @router.get("/", response_model=list[Transaction])
 def list_transactions(
     category: Optional[str] = Query(None, description="Filter by category"),
+    uncategorized: bool = Query(False, description="If true, return only transactions with no category"),
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     limit: int = Query(50, ge=1, le=500, description="Max results to return"),
@@ -47,6 +48,7 @@ def list_transactions(
     """
     Return a list of the user's transactions, newest first.
     All filters are optional and can be combined.
+    `uncategorized=true` overrides the `category` filter.
     """
     query = (
         supabase.table("transactions")
@@ -56,7 +58,9 @@ def list_transactions(
         .limit(limit)
     )
 
-    if category:
+    if uncategorized:
+        query = query.is_("category", "null")
+    elif category:
         # Case-insensitive match so lowercased budget line categories
         # correctly find transactions stored with mixed-case category values.
         query = query.ilike("category", category)

@@ -1,38 +1,17 @@
 import type { Transaction } from '@/lib/api'
-
-// Maps category keywords to Tailwind color classes for the tag badge.
-const CATEGORY_COLORS: Record<string, string> = {
-  food: 'bg-[#efe5ff] text-[#7c4fd6] dark:bg-[#312548] dark:text-[#cf9bff]',
-  dining: 'bg-[#efe5ff] text-[#7c4fd6] dark:bg-[#312548] dark:text-[#cf9bff]',
-  restaurant: 'bg-[#efe5ff] text-[#7c4fd6] dark:bg-[#312548] dark:text-[#cf9bff]',
-  groceries: 'bg-[#e3f6ed] text-[#239b73] dark:bg-[#153729] dark:text-accent',
-  grocery: 'bg-[#e3f6ed] text-[#239b73] dark:bg-[#153729] dark:text-accent',
-  shopping: 'bg-[#fde8e7] text-[#c96672] dark:bg-[#3c2430] dark:text-danger',
-  transport: 'bg-[#e2f1ff] text-[#2a7db4] dark:bg-[#22344f] dark:text-[#78d7ff]',
-  travel: 'bg-[#e2f1ff] text-[#2a7db4] dark:bg-[#22344f] dark:text-[#78d7ff]',
-  housing: 'bg-[#fbf2d7] text-[#b68a22] dark:bg-[#3d3622] dark:text-warning',
-  rent: 'bg-[#fbf2d7] text-[#b68a22] dark:bg-[#3d3622] dark:text-warning',
-  utilities: 'bg-[#e8edf6] text-[#697792] dark:bg-[#27324a] dark:text-cream-muted',
-  entertainment: 'bg-[#efe5ff] text-[#7c4fd6] dark:bg-[#312548] dark:text-[#cf9bff]',
-  health: 'bg-[#fde8e7] text-[#c96672] dark:bg-[#3c2430] dark:text-danger',
-  medical: 'bg-[#fde8e7] text-[#c96672] dark:bg-[#3c2430] dark:text-danger',
-  income: 'bg-[#e3f6ed] text-[#239b73] dark:bg-[#153729] dark:text-accent',
-}
-
-function tagStyle(cat: string | null): string {
-  if (!cat) return 'bg-[#e8edf6] text-[#697792] dark:bg-[#27324a] dark:text-cream-muted'
-  const key = cat.toLowerCase()
-  for (const k of Object.keys(CATEGORY_COLORS)) {
-    if (key.includes(k)) return CATEGORY_COLORS[k]
-  }
-  return 'bg-[#e8edf6] text-[#697792] dark:bg-[#27324a] dark:text-cream-muted'
-}
+import { getCategoryBadge, type BadgeProps } from '@/lib/categories'
 
 interface Props {
   transactions: Transaction[]
+  // Optional map of category name → color key from the user's categories table.
+  // When provided, stored colors take precedence over keyword-based matching.
+  colorMap?: Record<string, string>
+  // When provided, clicking a category badge (or the "uncategorized" label) opens
+  // the recategorize flow for that transaction.
+  onCategoryClick?: (tx: Transaction) => void
 }
 
-export default function TransactionTable({ transactions }: Props) {
+export default function TransactionTable({ transactions, colorMap, onCategoryClick }: Props) {
   if (transactions.length === 0) {
     return (
       <p className="text-sm text-cream-muted py-10 text-center">No transactions found.</p>
@@ -79,11 +58,36 @@ export default function TransactionTable({ transactions }: Props) {
               </td>
               <td className="px-4 py-3">
                 {t.category ? (
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${tagStyle(t.category)}`}
+                  (() => {
+                    const { className, style } = getCategoryBadge(t.category, colorMap)
+                    return onCategoryClick ? (
+                      <button
+                        type="button"
+                        onClick={() => onCategoryClick(t)}
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-opacity hover:opacity-75 ${className}`}
+                        style={style}
+                        title="Edit category"
+                      >
+                        {t.category}
+                      </button>
+                    ) : (
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${className}`}
+                        style={style}
+                      >
+                        {t.category}
+                      </span>
+                    )
+                  })()
+                ) : onCategoryClick ? (
+                  <button
+                    type="button"
+                    onClick={() => onCategoryClick(t)}
+                    className="text-cream-muted/50 text-xs hover:text-accent transition-colors"
+                    title="Add category"
                   >
-                    {t.category}
-                  </span>
+                    + Add category
+                  </button>
                 ) : (
                   <span className="text-cream-muted text-xs">uncategorized</span>
                 )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getLinkToken } from '@/lib/api'
 import { usePlaidLink } from 'react-plaid-link'
@@ -34,24 +34,99 @@ function PlaidLinkButton({
 }
 
 // ---------------------------------------------------------------------------
-// Connect Claude card — shows MCP server config for Claude Desktop
+// Developer Tools card — MCP server connection config for multiple AI clients
 // ---------------------------------------------------------------------------
 
-function ClaudeConnectCard() {
+type ClientTab = {
+  id: string
+  label: string
+  configPath: string
+  snippet: (sseUrl: string) => string
+  steps: (sseUrl: string) => React.ReactNode[]
+}
+
+const CLIENT_TABS: ClientTab[] = [
+  {
+    id: 'claude-desktop',
+    label: 'Claude Desktop',
+    configPath: 'claude_desktop_config.json',
+    snippet: (sseUrl) =>
+      JSON.stringify({ mcpServers: { finance: { url: sseUrl } } }, null, 2),
+    steps: (configPath) => [
+      'Open Claude Desktop → Settings → Developer → Edit Config',
+      <>Paste the snippet below into <code className="font-mono text-xs bg-surface px-1 py-0.5 rounded">{String(configPath)}</code></>,
+      'Save and restart Claude Desktop',
+      'A browser window will open — sign in once to authorize',
+    ],
+  },
+  {
+    id: 'claude-code',
+    label: 'Claude Code',
+    configPath: '',
+    snippet: (sseUrl) =>
+      `claude mcp add finance --transport sse ${sseUrl}`,
+    steps: () => [
+      'Run the command below in your terminal (requires the Claude Code CLI)',
+      'Claude Code will save the server to your global MCP config',
+      'Finance tools will be available in all future Claude Code sessions',
+    ],
+  },
+  {
+    id: 'chatgpt',
+    label: 'ChatGPT',
+    configPath: '',
+    snippet: (sseUrl) => sseUrl,
+    steps: () => [
+      'Go to chatgpt.com → Settings → Connectors (requires Plus or Pro)',
+      'Click Create connector and paste the URL below into the endpoint field',
+      'Save — the finance connector will appear in your ChatGPT sessions',
+    ],
+  },
+  {
+    id: 'gemini',
+    label: 'Gemini',
+    configPath: '~/.gemini/settings.json',
+    snippet: (sseUrl) =>
+      JSON.stringify(
+        { mcpServers: { finance: { httpUrl: sseUrl } } },
+        null,
+        2
+      ),
+    steps: (configPath) => [
+      'Install the Gemini CLI: npm install -g @google/gemini-cli',
+      <>Open or create <code className="font-mono text-xs bg-surface px-1 py-0.5 rounded">{String(configPath)}</code></>,
+      'Paste the snippet below (merge with any existing mcpServers) and save',
+      'Finance tools will be available in the next Gemini CLI session',
+    ],
+  },
+  {
+    id: 'grok',
+    label: 'Grok',
+    configPath: '',
+    snippet: (sseUrl) => sseUrl,
+    steps: () => [
+      'Open grok.com and start a new conversation',
+      'Click the tools / connectors icon in the chat toolbar',
+      'Select Add MCP Server and paste the URL below',
+      'Finance tools will be available immediately in that session',
+    ],
+  },
+]
+
+function DevToolsCard() {
   const mcpUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL ?? ''
   const sseUrl = mcpUrl ? `${mcpUrl}/sse` : 'https://mcp.budgitbuddy.com/sse'
 
-  const config = JSON.stringify(
-    { mcpServers: { finance: { url: sseUrl } } },
-    null,
-    2
-  )
-
+  const [activeTab, setActiveTab] = useState(CLIENT_TABS[0].id)
   const [copied, setCopied] = useState(false)
+
+  const tab = CLIENT_TABS.find((t) => t.id === activeTab) ?? CLIENT_TABS[0]
+  const snippet = tab.snippet(sseUrl)
+  const steps = tab.steps(tab.configPath)
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(config)
+      await navigator.clipboard.writeText(snippet)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
@@ -62,22 +137,40 @@ function ClaudeConnectCard() {
   return (
     <section className="app-panel rounded-3xl p-6 space-y-4">
       <div>
-        <h2 className="font-semibold text-cream">Connect Claude</h2>
+        <h2 className="font-semibold text-cream">Developer Tools</h2>
         <p className="text-sm text-cream-muted mt-1">
-          Add the MCP server to Claude Desktop to ask Claude about your finances.
+          Connect your AI assistant to this app&apos;s MCP server to query your finances directly from chat.
         </p>
       </div>
 
+      {/* Client tabs */}
+      <div className="flex flex-wrap gap-1.5">
+        {CLIENT_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => { setActiveTab(t.id); setCopied(false) }}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              activeTab === t.id
+                ? 'bg-accent text-accent-contrast'
+                : 'border border-surface-border text-cream-muted hover:text-cream'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Steps */}
       <ol className="text-sm text-cream-muted space-y-1.5 list-decimal list-inside">
-        <li>Open Claude Desktop → Settings → Developer → Edit Config</li>
-        <li>Paste the snippet below into <code className="font-mono text-xs bg-surface px-1 py-0.5 rounded">claude_desktop_config.json</code></li>
-        <li>Save the file and restart Claude Desktop</li>
-        <li>A browser window will open — sign in with your account once</li>
+        {steps.map((step, i) => (
+          <li key={i}>{step}</li>
+        ))}
       </ol>
 
+      {/* Snippet */}
       <div className="relative">
-        <pre className="bg-surface border border-surface-border rounded-xl p-4 text-xs font-mono text-cream overflow-x-auto">
-          {config}
+        <pre className="bg-surface border border-surface-border rounded-xl p-4 text-xs font-mono text-cream overflow-x-auto whitespace-pre-wrap break-all">
+          {snippet}
         </pre>
         <button
           onClick={handleCopy}
@@ -104,6 +197,7 @@ export default function SettingsPage() {
   const [nameInput, setNameInput] = useState<string>('')
   const [savingName, setSavingName] = useState(false)
   const [nameSaved, setNameSaved] = useState(false)
+  const [showDevTools, setShowDevTools] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -271,8 +365,8 @@ export default function SettingsPage() {
         )}
       </section>
 
-      {/* Connect Claude */}
-      <ClaudeConnectCard />
+      {/* Developer Tools — hidden by default */}
+      {showDevTools && <DevToolsCard />}
 
       {/* Account */}
       <section className="app-panel rounded-3xl p-6 space-y-4">
@@ -309,6 +403,22 @@ export default function SettingsPage() {
                 {savingName ? 'Saving…' : nameSaved ? 'Saved!' : 'Save'}
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Developer tools toggle */}
+        <div
+          role="button"
+          onClick={() => setShowDevTools((v) => !v)}
+          className="flex items-center justify-between rounded-xl border border-surface-border px-4 py-3 cursor-pointer hover:bg-surface transition-colors"
+        >
+          <div>
+            <p className="text-sm font-medium text-cream">Developer Tools</p>
+            <p className="text-xs text-cream-muted mt-0.5">MCP server connection configs for AI clients</p>
+          </div>
+          {/* Toggle switch */}
+          <div className={`relative flex-shrink-0 w-10 h-6 rounded-full transition-colors ${showDevTools ? 'bg-accent' : 'bg-surface-border'}`}>
+            <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${showDevTools ? 'translate-x-5' : 'translate-x-1'}`} />
           </div>
         </div>
 

@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useAccounts, useLiabilities, useTransactions, useSyncTransactions } from '@/hooks/queries'
+import { useAccounts, useLiabilities, useTransactions, useSyncTransactions, useCategories } from '@/hooks/queries'
 import type { Transaction } from '@/lib/api'
 import SpendingChart from '@/components/SpendingChart'
 import TransactionTable from '@/components/TransactionTable'
+import RecategorizeModal from '@/components/RecategorizeModal'
 
 type DateTab = 'this_month' | 'this_week' | 'last_month' | 'custom'
 
@@ -102,6 +103,10 @@ export default function DashboardPage() {
   const [customStart, setCustomStart] = useState(() => thisMonthRange().start)
   const [customEnd, setCustomEnd] = useState(() => thisMonthRange().end)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [editTarget, setEditTarget] = useState<Transaction | null>(null)
+  // Tracks whether the user has interacted with the spending chart section.
+  // When true, Recent Transactions mirrors the chart's date range / category filter.
+  const [chartInteracted, setChartInteracted] = useState(false)
 
   const { start, end } = getDateRange(dateTab, customStart, customEnd)
 
@@ -113,15 +118,21 @@ export default function DashboardPage() {
 
   const { data: accounts = [], isLoading: loadingAccounts, error: accountsError } = useAccounts()
   const { data: liabilities = [], isLoading: loadingLiabs } = useLiabilities()
+  const { data: categories = [] } = useCategories()
   const syncMutation = useSyncTransactions()
   const { data: transactions = [], isLoading: loadingTxns } = useTransactions({
     start_date: start,
     end_date: end,
     limit: 500,
   })
+  // Default recent transactions — independent of the chart's date range.
+  const { data: recentTransactions = [], isLoading: loadingRecent } = useTransactions({ limit: 10 })
 
   const loading = loadingAccounts || loadingLiabs
   const error = accountsError
+  const colorMap = Object.fromEntries(
+    categories.filter((c) => c.color).map((c) => [c.name, c.color!]),
+  )
 
   // Split Plaid accounts into asset accounts (depository, investment, etc.)
   // vs debt accounts (credit cards, loans). Debt accounts' current_balance
@@ -236,7 +247,7 @@ export default function DashboardPage() {
             ] as [DateTab, string][]).map(([tab, label]) => (
               <button
                 key={tab}
-                onClick={() => { setDateTab(tab); setSelectedCategory(null) }}
+                onClick={() => { setDateTab(tab); setSelectedCategory(null); setChartInteracted(true) }}
                 className={`px-3 py-1 rounded-md transition-colors ${
                   dateTab === tab
                     ? 'bg-surface-raised text-cream shadow-sm font-medium'
@@ -281,9 +292,10 @@ export default function DashboardPage() {
           <SpendingChart
             data={spendingData}
             selectedCategory={selectedCategory}
-            onCategoryClick={(cat) =>
+            onCategoryClick={(cat) => {
               setSelectedCategory((prev) => (prev === cat ? null : cat))
-            }
+              setChartInteracted(true)
+            }}
             totalLabel={totalLabel}
           />
         ) : accounts.length > 0 ? (
@@ -318,29 +330,47 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-cream">Recent Transactions</h2>
-            {selectedCategory && (
+            {chartInteracted && selectedCategory && (
               <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent-text dark:text-accent">
                 {selectedCategory}
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className="ml-0.5 hover:text-accent-text dark:hover:text-accent-hover"
-                  aria-label="Clear filter"
-                >
-                  &times;
-                </button>
               </span>
+            )}
+            {chartInteracted && (
+              <button
+                onClick={() => { setChartInteracted(false); setSelectedCategory(null) }}
+                className="inline-flex items-center gap-1 rounded-full border border-surface-border px-2 py-0.5 text-xs text-cream-muted hover:text-cream transition-colors"
+                aria-label="Reset to default recent transactions"
+              >
+                Reset &times;
+              </button>
             )}
           </div>
           <Link href="/transactions" className="text-sm text-accent-text dark:text-accent hover:underline">
             View all
           </Link>
         </div>
-        <TransactionTable
-          transactions={selectedCategory
-            ? transactions.filter((t) => (t.category ?? 'Uncategorized') === selectedCategory)
-            : transactions.slice(0, 8)}
-        />
+        {loadingRecent && !chartInteracted ? (
+          <p className="text-sm text-cream-muted text-center py-8">Loading…</p>
+        ) : (
+          <TransactionTable
+            transactions={
+              chartInteracted
+                ? (selectedCategory
+                    ? transactions.filter((t) => (t.category ?? 'Uncategorized') === selectedCategory)
+                    : transactions)
+                : recentTransactions
+            }
+            colorMap={colorMap}
+            onCategoryClick={setEditTarget}
+          />
+        )}
       </section>
+
+      <RecategorizeModal
+        key={editTarget?.id}
+        transaction={editTarget}
+        onClose={() => setEditTarget(null)}
+      />
     </div>
   )
 }

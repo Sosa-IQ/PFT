@@ -1,10 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useTransactions } from '@/hooks/queries'
+import { useTransactions, useCategories } from '@/hooks/queries'
+import type { Transaction } from '@/lib/api'
 import TransactionTable from '@/components/TransactionTable'
+import RecategorizeModal from '@/components/RecategorizeModal'
 
 export default function TransactionsPage() {
+  const [editTarget, setEditTarget] = useState<Transaction | null>(null)
+
   // Filter state
   const [category, setCategory] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -20,6 +24,10 @@ export default function TransactionsPage() {
   }>({ limit: 100 })
 
   const { data: transactions = [], isLoading, error } = useTransactions(appliedFilters)
+  const { data: categories = [] } = useCategories()
+  const colorMap = Object.fromEntries(
+    categories.filter((c) => c.color).map((c) => [c.name, c.color!]),
+  )
 
   function handleApply() {
     setAppliedFilters({
@@ -116,10 +124,20 @@ export default function TransactionsPage() {
         ) : (
           <>
             <p className="text-xs text-cream-muted mb-3">{transactions.length} transaction(s)</p>
-            <TransactionTable transactions={transactions} />
+            <TransactionTable
+              transactions={transactions}
+              colorMap={colorMap}
+              onCategoryClick={setEditTarget}
+            />
           </>
         )}
       </div>
+
+      <RecategorizeModal
+        key={editTarget?.id}
+        transaction={editTarget}
+        onClose={() => setEditTarget(null)}
+      />
     </div>
   )
 }

@@ -10,6 +10,7 @@ import ThemeToggle from '@/components/ThemeToggle'
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: '✦' },
   { label: 'Transactions', href: '/transactions', icon: '↺' },
+  { label: 'Categories', href: '/categories', icon: '⊞' },
   { label: 'Budgets', href: '/budgets', icon: '◫' },
   { label: 'Goals', href: '/goals', icon: '◎' },
   { label: 'Liabilities', href: '/liabilities', icon: '◌' },
