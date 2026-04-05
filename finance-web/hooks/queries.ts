@@ -14,6 +14,14 @@ import {
   excludeTransaction,
   includeTransaction,
   getTransactionCategories,
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  recategorizeTransaction,
+  getCategoryHistory,
+  undoCategoryChange,
+  clearCategoryHistory,
   getGoals,
   createGoal,
   updateGoal,
@@ -29,6 +37,9 @@ import {
   type BudgetLine,
   type Goal,
   type Liability,
+  type Category,
+  type CategoryChangeLog,
+  type RecategorizeResult,
 } from '@/lib/api'
 import { useAuthToken } from './useAuthToken'
 
@@ -41,6 +52,8 @@ export const queryKeys = {
   budgets: ['budgets'] as const,
   goals: ['goals'] as const,
   liabilities: ['liabilities'] as const,
+  categories: ['categories'] as const,
+  categoryHistory: ['category-history'] as const,
 }
 
 // ── Account types (shared across pages) ───────────────────────────────────
@@ -87,16 +100,21 @@ export function useDebtAccounts() {
 
 // ── Transactions ──────────────────────────────────────────────────────────
 
-export function useTransactions(filters: {
-  category?: string
-  start_date?: string
-  end_date?: string
-  limit?: number
-} = {}) {
+export function useTransactions(
+  filters: {
+    category?: string
+    uncategorized?: boolean
+    start_date?: string
+    end_date?: string
+    limit?: number
+  } = {},
+  options?: { enabled?: boolean },
+) {
   const token = useAuthToken()
   return useQuery<Transaction[]>({
     queryKey: queryKeys.transactions(filters),
     queryFn: () => getTransactions(token, filters),
+    enabled: options?.enabled !== false,
   })
 }
 
@@ -295,6 +313,104 @@ export function useTransactionCategories() {
     queryKey: ['transaction-categories'],
     queryFn: () => getTransactionCategories(token),
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ── Categories (full management) ──────────────────────────────────────────
+
+export function useCategories() {
+  const token = useAuthToken()
+  return useQuery<Category[]>({
+    queryKey: queryKeys.categories,
+    queryFn: () => getCategories(token),
+  })
+}
+
+export function useCreateCategory() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, color }: { name: string; color?: string }) =>
+      createCategory(token, name, color),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.categories })
+    },
+  })
+}
+
+export function useUpdateCategory() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, color, newName }: { name: string; color: string | null; newName?: string }) =>
+      updateCategory(token, name, color, newName),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: queryKeys.categories })
+      // Rename changes transaction records, so stale transaction caches must refresh
+      if (vars.newName) {
+        qc.invalidateQueries({ queryKey: ['transactions'] })
+      }
+    },
+  })
+}
+
+export function useDeleteCategory() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => deleteCategory(token, name),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.categories })
+    },
+  })
+}
+
+export function useRecategorizeTransaction() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation<
+    RecategorizeResult,
+    Error,
+    { transactionId: string; new_category: string; apply_to_same_merchant?: boolean; apply_to_old_category?: boolean }
+  >({
+    mutationFn: ({ transactionId, ...data }) => recategorizeTransaction(token, transactionId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.categories })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: queryKeys.categoryHistory })
+    },
+  })
+}
+
+export function useCategoryHistory() {
+  const token = useAuthToken()
+  return useQuery<CategoryChangeLog[]>({
+    queryKey: queryKeys.categoryHistory,
+    queryFn: () => getCategoryHistory(token),
+  })
+}
+
+export function useUndoCategoryChange() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (logId: string) => undoCategoryChange(token, logId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.categories })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: queryKeys.categoryHistory })
+    },
+  })
+}
+
+export function useClearCategoryHistory() {
+  const token = useAuthToken()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => clearCategoryHistory(token),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.categoryHistory })
+    },
   })
 }
 

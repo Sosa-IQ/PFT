@@ -13,6 +13,7 @@
     "@tanstack/react-query": "^5.90.21",
     "next": "^14.2.35",
     "react": "^18",
+    "react-colorful": "^5.6.1",
     "react-dom": "^18",
     "react-plaid-link": "^3.5.1",
     "recharts": "^2.12.0"

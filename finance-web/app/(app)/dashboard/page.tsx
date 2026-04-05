@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useAccounts, useLiabilities, useTransactions, useSyncTransactions } from '@/hooks/queries'
+import { useAccounts, useLiabilities, useTransactions, useSyncTransactions, useCategories } from '@/hooks/queries'
 import type { Transaction } from '@/lib/api'
 import SpendingChart from '@/components/SpendingChart'
 import TransactionTable from '@/components/TransactionTable'
+import RecategorizeModal from '@/components/RecategorizeModal'
 
 type DateTab = 'this_month' | 'this_week' | 'last_month' | 'custom'
 
@@ -102,6 +103,7 @@ export default function DashboardPage() {
   const [customStart, setCustomStart] = useState(() => thisMonthRange().start)
   const [customEnd, setCustomEnd] = useState(() => thisMonthRange().end)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [editTarget, setEditTarget] = useState<Transaction | null>(null)
 
   const { start, end } = getDateRange(dateTab, customStart, customEnd)
 
@@ -113,6 +115,7 @@ export default function DashboardPage() {
 
   const { data: accounts = [], isLoading: loadingAccounts, error: accountsError } = useAccounts()
   const { data: liabilities = [], isLoading: loadingLiabs } = useLiabilities()
+  const { data: categories = [] } = useCategories()
   const syncMutation = useSyncTransactions()
   const { data: transactions = [], isLoading: loadingTxns } = useTransactions({
     start_date: start,
@@ -122,6 +125,9 @@ export default function DashboardPage() {
 
   const loading = loadingAccounts || loadingLiabs
   const error = accountsError
+  const colorMap = Object.fromEntries(
+    categories.filter((c) => c.color).map((c) => [c.name, c.color!]),
+  )
 
   // Split Plaid accounts into asset accounts (depository, investment, etc.)
   // vs debt accounts (credit cards, loans). Debt accounts' current_balance
@@ -339,8 +345,16 @@ export default function DashboardPage() {
           transactions={selectedCategory
             ? transactions.filter((t) => (t.category ?? 'Uncategorized') === selectedCategory)
             : transactions.slice(0, 8)}
+          colorMap={colorMap}
+          onCategoryClick={setEditTarget}
         />
       </section>
+
+      <RecategorizeModal
+        key={editTarget?.id}
+        transaction={editTarget}
+        onClose={() => setEditTarget(null)}
+      />
     </div>
   )
 }

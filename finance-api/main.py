@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from routers import plaid, transactions, budgets, goals, liabilities, contact
+from routers import plaid, transactions, budgets, goals, liabilities, contact, categories
 
 load_dotenv()
 
@@ -50,6 +50,7 @@ app.add_middleware(
 
 app.include_router(plaid.router)
 app.include_router(transactions.router)
+app.include_router(categories.router)
 app.include_router(budgets.router)
 app.include_router(goals.router)
 app.include_router(liabilities.router)
