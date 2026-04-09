@@ -457,45 +457,51 @@ function MockDashboardPreview() {
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
 
-const pricingTiers = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    badge: null,
-    description: 'Everything you need to start taking control of your finances.',
-    cta: 'Get Started',
-    ctaHref: '/signup',
-    highlighted: false,
-    features: [
-      '1 connected bank account',
-      '30-day transaction history',
-      'Up to 5 budget categories',
-      'Net worth tracking',
-      'Manual liability entry',
-      'Community support',
-    ],
-  },
-  {
-    name: 'Pro',
-    price: '$9',
-    period: '/month',
-    badge: 'Most Popular',
-    description: 'The full BudgIt Buddy experience for serious financial growth.',
-    cta: 'Start Free Trial',
-    ctaHref: '/signup',
-    highlighted: true,
-    features: [
-      'Everything in Free',
-      'Unlimited bank accounts',
-      'Full transaction history',
-      'Unlimited budgets & categories',
-      'Savings goals tracking',
-      'AI insights via Claude MCP',
-      'Priority support',
-    ],
-  },
-]
+function getPricingTiers(billing: 'monthly' | 'annual') {
+  return [
+    {
+      name: 'Free',
+      price: '$0',
+      period: 'forever',
+      periodSub: null,
+      badge: null,
+      trialNote: null,
+      description: 'Everything you need to start taking control of your finances.',
+      cta: 'Get Started',
+      ctaHref: '/signup',
+      highlighted: false,
+      features: [
+        '1 connected bank account',
+        '30-day transaction history',
+        'Up to 5 budget categories',
+        'Net worth tracking',
+        'Manual liability entry',
+        'Community support',
+      ],
+    },
+    {
+      name: 'Pro',
+      price: billing === 'annual' ? '$59.99' : '$6.99',
+      period: billing === 'annual' ? '/year' : '/month',
+      periodSub: billing === 'annual' ? '$5.00/mo · save 29%' : null,
+      badge: 'Most Popular',
+      trialNote: '7-day free trial · Cancel anytime',
+      description: 'The full BudgIt Buddy experience for serious financial growth.',
+      cta: 'Start Free Trial',
+      ctaHref: '/signup',
+      highlighted: true,
+      features: [
+        'Everything in Free',
+        'Unlimited bank accounts',
+        'Full transaction history',
+        'Unlimited budgets & categories',
+        'Savings goals tracking',
+        'AI insights via Claude',
+        'Priority support',
+      ],
+    },
+  ]
+}
 
 function CheckIcon() {
   return (
@@ -509,6 +515,8 @@ function CheckIcon() {
 
 export default function LandingPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [billing, setBilling] = useState<'monthly' | 'annual'>('annual')
+  const pricingTiers = getPricingTiers(billing)
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false)
 
@@ -690,9 +698,30 @@ export default function LandingPage() {
       {/* Pricing */}
       <section id="pricing" className="border-y border-surface-border bg-surface/60 px-6 py-20 transition-colors">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-10">
             <h2 className="text-3xl font-extrabold text-cream md:text-4xl">Simple, honest pricing</h2>
             <p className="mt-3 text-cream-muted">Start free. Upgrade when you&apos;re ready.</p>
+
+            {/* Billing toggle */}
+            <div className="mt-6 inline-flex items-center gap-0 rounded-xl bg-surface-raised p-1 ring-1 ring-surface-border">
+              {(['annual', 'monthly'] as const).map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setBilling(b)}
+                  className={`rounded-lg px-5 py-2 text-sm font-medium transition-all ${
+                    billing === b
+                      ? 'bg-accent text-accent-contrast shadow-sm'
+                      : 'text-cream-muted hover:text-cream'
+                  }`}
+                >
+                  {b === 'annual' ? (
+                    <span className="flex items-center gap-1.5">
+                      Annual <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">Save 29%</span>
+                    </span>
+                  ) : 'Monthly'}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="grid md:grid-cols-2 gap-6 items-start">
             {pricingTiers.map((tier) => (
@@ -710,6 +739,9 @@ export default function LandingPage() {
                   <span className="text-4xl font-extrabold text-cream">{tier.price}</span>
                   <span className="mb-1 text-sm text-cream-muted">{tier.period}</span>
                 </div>
+                {tier.periodSub && (
+                  <p className="text-xs text-success font-medium mb-1">{tier.periodSub}</p>
+                )}
                 <p className="text-xl font-bold text-cream mb-1">{tier.name}</p>
                 <p className="text-sm text-cream-muted mb-7">{tier.description}</p>
                 <ul className="flex-1 space-y-3 mb-8">
@@ -730,6 +762,9 @@ export default function LandingPage() {
                 >
                   {tier.cta}
                 </Link>
+                {tier.trialNote && (
+                  <p className="mt-3 text-center text-xs text-cream-muted">{tier.trialNote}</p>
+                )}
               </div>
             ))}
           </div>

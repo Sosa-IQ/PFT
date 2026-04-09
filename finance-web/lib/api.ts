@@ -348,6 +348,20 @@ export async function deleteLiability(token: string, id: string): Promise<void> 
   return apiFetch<void>(`/liabilities/${id}`, token, { method: 'DELETE' })
 }
 
+// ── Subscriptions ──────────────────────────────────────────────────────────
+
+export interface SubscriptionInfo {
+  tier: 'free' | 'pro'
+  period_type: 'monthly' | 'annual' | null
+  trial_ends_at: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+}
+
+export async function getSubscription(token: string): Promise<SubscriptionInfo> {
+  return apiFetch<SubscriptionInfo>('/subscriptions/me', token)
+}
+
 // ── Plaid ──────────────────────────────────────────────────────────────────
 
 export async function getLinkToken(

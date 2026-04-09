@@ -1,15 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useGoals, useCreateGoal, useUpdateGoal, useDeleteGoal } from '@/hooks/queries'
 import type { Goal } from '@/lib/api'
 import GoalCard from '@/components/GoalCard'
+import { useSubscription } from '@/hooks/useSubscription'
 
 export default function GoalsPage() {
   const { data: goals = [], isLoading, error } = useGoals()
   const createGoal = useCreateGoal()
   const updateGoalMut = useUpdateGoal()
   const deleteGoalMut = useDeleteGoal()
+  const { isPro } = useSubscription()
 
   // Form state — shared for create and edit.
   const [showForm, setShowForm] = useState(false)
@@ -91,6 +94,20 @@ export default function GoalsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {!isPro && (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-accent/30 bg-accent/8 px-5 py-4">
+          <div>
+            <p className="text-sm font-semibold text-cream">Savings Goals is a Pro feature</p>
+            <p className="text-xs text-cream-muted mt-0.5">Upgrade to track unlimited goals and stay on target.</p>
+          </div>
+          <Link
+            href="/billing"
+            className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors"
+          >
+            Upgrade
+          </Link>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-cream">Savings Goals</h1>
         <button

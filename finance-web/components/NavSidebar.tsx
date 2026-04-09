@@ -14,6 +14,7 @@ const navItems = [
   { label: 'Budgets', href: '/budgets', icon: '◫' },
   { label: 'Goals', href: '/goals', icon: '◎' },
   { label: 'Liabilities', href: '/liabilities', icon: '◌' },
+  { label: 'Billing', href: '/billing', icon: '◈' },
   { label: 'Settings', href: '/settings', icon: '⚙' },
 ]
 

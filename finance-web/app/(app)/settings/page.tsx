@@ -6,6 +6,8 @@ import { getLinkToken } from '@/lib/api'
 import { usePlaidLink } from 'react-plaid-link'
 import { useAuthToken } from '@/hooks/useAuthToken'
 import { useAccounts, useSyncTransactions, useExchangePlaidToken } from '@/hooks/queries'
+import { useSubscription } from '@/hooks/useSubscription'
+import UpgradeModal from '@/components/UpgradeModal'
 
 // Inner component that has access to the Plaid link token and uses the hook.
 function PlaidLinkButton({
@@ -190,6 +192,8 @@ export default function SettingsPage() {
   const { data: accounts = [], isLoading } = useAccounts()
   const syncMutation = useSyncTransactions()
   const exchangeMutation = useExchangePlaidToken()
+  const { isPro } = useSubscription()
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string>('')
@@ -291,7 +295,14 @@ export default function SettingsPage() {
 
         {!linkToken ? (
           <button
-            onClick={handleGetLinkToken}
+            onClick={() => {
+              // Free users can connect their first account; block a second
+              if (!isPro && accounts.length >= 1) {
+                setShowUpgradeModal(true)
+              } else {
+                handleGetLinkToken()
+              }
+            }}
             disabled={fetchingLink}
             className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
@@ -303,6 +314,10 @@ export default function SettingsPage() {
             onSuccess={handlePlaidSuccess}
             onExit={handlePlaidExit}
           />
+        )}
+
+        {showUpgradeModal && (
+          <UpgradeModal feature="unlimited bank accounts" onClose={() => setShowUpgradeModal(false)} />
         )}
       </section>
 
