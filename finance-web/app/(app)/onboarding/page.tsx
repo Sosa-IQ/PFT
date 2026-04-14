@@ -8,9 +8,6 @@ import { supabase } from '@/lib/supabase'
 import { getLinkToken, exchangePlaidToken } from '@/lib/api'
 import { useAuthToken } from '@/hooks/useAuthToken'
 import { useSubscription } from '@/hooks/useSubscription'
-import { getOfferings, purchasePackage } from '@/lib/revenuecat'
-import type { Package } from '@revenuecat/purchases-js'
-import { PurchasesError, ErrorCode } from '@revenuecat/purchases-js'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -202,48 +199,13 @@ function StepBank({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }
 
 // ── Step 3: Choose Plan ───────────────────────────────────────────────────────
 
-function StepPlan({
-  onComplete,
-  userEmail,
-}: {
-  onComplete: () => void
-  userEmail: string
-}) {
-  const { refresh } = useSubscription()
+function StepPlan({ onComplete }: { onComplete: () => void }) {
+  const router = useRouter()
+  const { trialEligible } = useSubscription()
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
-  const [offerings, setOfferings] = useState<{ monthly: Package | null; annual: Package | null }>({
-    monthly: null,
-    annual: null,
-  })
-  const [purchasing, setPurchasing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    getOfferings().then(setOfferings).catch(() => null)
-  }, [])
-
-  async function handleProCTA() {
-    const pkg = billing === 'annual' ? offerings.annual : offerings.monthly
-    if (!pkg) {
-      // RC not configured yet — show setup message
-      setError('Payment system not configured yet. Try again soon or continue with the free plan.')
-      return
-    }
-    setPurchasing(true)
-    setError(null)
-    try {
-      await purchasePackage(pkg, userEmail)
-      refresh()
-      onComplete()
-    } catch (err) {
-      if (err instanceof PurchasesError && err.errorCode === ErrorCode.UserCancelledError) {
-        // User closed checkout — no error shown
-      } else {
-        setError('Purchase failed. Please try again.')
-      }
-    } finally {
-      setPurchasing(false)
-    }
+  function handleProCTA() {
+    router.push(`/checkout?plan=${billing}`)
   }
 
   const monthlyPrice = '$6.99'
@@ -255,7 +217,9 @@ function StepPlan({
       <div>
         <p className="text-sm font-medium text-accent mb-1">Step 3 of 3</p>
         <h1 className="text-2xl font-bold text-cream">Choose your plan</h1>
-        <p className="mt-2 text-cream-muted">Start free or unlock everything with a 7-day trial.</p>
+        <p className="mt-2 text-cream-muted">
+          {trialEligible ? 'Start free or unlock everything with a 7-day trial.' : 'Start free or subscribe to unlock everything.'}
+        </p>
       </div>
 
       {/* Billing toggle */}
@@ -337,16 +301,16 @@ function StepPlan({
               </li>
             ))}
           </ul>
-          {error && <p className="text-xs text-danger">{error}</p>}
           <button
             onClick={handleProCTA}
-            disabled={purchasing}
-            className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors"
           >
-            {purchasing ? 'Opening checkout…' : 'Start 7-day free trial'}
+            {trialEligible ? 'Start 7-day free trial' : `Subscribe for ${billing === 'annual' ? `${annualPrice}/yr` : `${monthlyPrice}/mo`}`}
           </button>
           <p className="text-center text-[11px] text-cream-muted">
-            Try Pro free for 7 days, then {billing === 'annual' ? `${annualPrice}/yr` : `${monthlyPrice}/mo`}. Cancel anytime.
+            {trialEligible
+              ? `Try Pro free for 7 days, then ${billing === 'annual' ? `${annualPrice}/yr` : `${monthlyPrice}/mo`}. Cancel anytime.`
+              : 'You will be charged today. Cancel anytime.'}
           </p>
         </div>
       </div>
@@ -408,7 +372,7 @@ export default function OnboardingPage() {
 
       {step === 1 && <StepGoal name={userName} onNext={handleGoalNext} />}
       {step === 2 && <StepBank onNext={() => setStep(3)} onSkip={() => setStep(3)} />}
-      {step === 3 && <StepPlan onComplete={completeOnboarding} userEmail={userEmail} />}
+      {step === 3 && <StepPlan onComplete={completeOnboarding} />}
     </div>
   )
 }

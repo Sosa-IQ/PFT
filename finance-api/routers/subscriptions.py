@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+import stripe
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 from supabase import Client
@@ -23,6 +24,35 @@ router = APIRouter(tags=["subscriptions"])
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _stripe_value(obj, key: str):
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)
+
+
+def _subscription_period_end_ts(subscription) -> Optional[int]:
+    period_end_ts = _stripe_value(subscription, "current_period_end")
+    if period_end_ts:
+        return period_end_ts
+
+    cancel_at_ts = _stripe_value(subscription, "cancel_at")
+    if cancel_at_ts:
+        return cancel_at_ts
+
+    items = _stripe_value(subscription, "items")
+    item_data = _stripe_value(items, "data") or []
+    item_period_ends = [
+        _stripe_value(item, "current_period_end")
+        for item in item_data
+        if _stripe_value(item, "current_period_end")
+    ]
+    return min(item_period_ends) if item_period_ends else None
+
+
+# ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
 
@@ -32,6 +62,7 @@ class SubscriptionInfo(BaseModel):
     trial_ends_at: Optional[str]
     current_period_end: Optional[str]
     cancel_at_period_end: bool
+    trial_eligible: bool                    # False once a Stripe subscription has ever been created
 
 
 # ---------------------------------------------------------------------------
@@ -61,12 +92,50 @@ def get_my_subscription(
         refetch = db.table("user_subscriptions").select("*").eq("user_id", user_id).limit(1).execute()
         row = refetch.data[0]
 
+    # A user is trial-eligible only if they have never had a Stripe subscription.
+    # stripe_subscription_id is set as soon as the first subscription is created,
+    # and is never cleared — so its presence means a prior subscription exists.
+    trial_eligible = not bool(row.get("stripe_subscription_id"))
+
+    # Backfill current_period_end from Stripe if it's missing.
+    # This covers users who cancelled before this field was stored, and cases where
+    # the Stripe webhook hasn't fired yet.
+    #
+    # Newer Stripe API versions can omit current_period_end from the top-level
+    # subscription object, so the helper also checks cancel_at and subscription items.
+    if row.get("stripe_subscription_id") and not row.get("current_period_end"):
+        stripe_key = os.getenv("STRIPE_SECRET_KEY", "")
+        if stripe_key:
+            try:
+                stripe.api_key = stripe_key
+                sub = stripe.Subscription.retrieve(row["stripe_subscription_id"])
+                period_end_ts = _subscription_period_end_ts(sub)
+
+                if period_end_ts:
+                    backfilled = datetime.fromtimestamp(period_end_ts, tz=timezone.utc).isoformat()
+                    db.table("user_subscriptions").update({
+                        "current_period_end": backfilled,
+                        "updated_at": datetime.now(tz=timezone.utc).isoformat(),
+                    }).eq("user_id", user_id).execute()
+                    row["current_period_end"] = backfilled
+                else:
+                    logger.warning(
+                        "Stripe subscription %s missing current_period_end. "
+                        "Status: %s. Keys: %s",
+                        row["stripe_subscription_id"],
+                        sub.get("status"),
+                        sorted(sub.keys()),
+                    )
+            except Exception as e:
+                logger.warning("Failed to backfill current_period_end for user %s: %s", user_id, e)
+
     return SubscriptionInfo(
         tier=row["tier"],
         period_type=row.get("period_type"),
         trial_ends_at=row.get("trial_ends_at"),
         current_period_end=row.get("current_period_end"),
         cancel_at_period_end=row.get("cancel_at_period_end", False),
+        trial_eligible=trial_eligible,
     )
 
 

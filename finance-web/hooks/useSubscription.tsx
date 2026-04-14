@@ -8,7 +8,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { getSubscription, type SubscriptionInfo } from '@/lib/api'
-import { configureRC, checkProEntitlement } from '@/lib/revenuecat'
 
 interface SubscriptionState {
   tier: 'free' | 'pro'
@@ -18,6 +17,7 @@ interface SubscriptionState {
   currentPeriodEnd: Date | null
   cancelAtPeriodEnd: boolean
   periodType: 'monthly' | 'annual' | null
+  trialEligible: boolean
   loading: boolean
   /** Re-fetch after a purchase completes */
   refresh: () => void
@@ -31,6 +31,7 @@ const defaultState: SubscriptionState = {
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
   periodType: null,
+  trialEligible: true,
   loading: true,
   refresh: () => {},
 }
@@ -49,27 +50,20 @@ export function SubscriptionProvider({
   const fetchSubscription = useCallback(async () => {
     setState((s) => ({ ...s, loading: true }))
     try {
-      // Check both our backend DB and RevenueCat directly.
-      // RC is the source of truth — webhooks may lag (especially in local dev),
-      // so if RC says pro we honour that even if the DB hasn't caught up yet.
-      const [data, rcIsPro] = await Promise.all([
-        getSubscription(session.access_token),
-        checkProEntitlement(),
-      ])
-
-      const effectiveTier: 'free' | 'pro' = (data.tier === 'pro' || rcIsPro) ? 'pro' : 'free'
+      const data = await getSubscription(session.access_token)
       const now = new Date()
       const trialEndsAt = data.trial_ends_at ? new Date(data.trial_ends_at) : null
-      const isTrialing = !!trialEndsAt && trialEndsAt > now && effectiveTier === 'pro'
+      const isTrialing = !!trialEndsAt && trialEndsAt > now && data.tier === 'pro'
 
       setState({
-        tier: effectiveTier,
-        isPro: effectiveTier === 'pro',
+        tier: data.tier,
+        isPro: data.tier === 'pro',
         isTrialing,
         trialEndsAt,
         currentPeriodEnd: data.current_period_end ? new Date(data.current_period_end) : null,
         cancelAtPeriodEnd: data.cancel_at_period_end,
         periodType: data.period_type,
+        trialEligible: data.trial_eligible,
         loading: false,
       })
     } catch {
@@ -79,10 +73,8 @@ export function SubscriptionProvider({
   }, [session.access_token])
 
   useEffect(() => {
-    // Initialize RevenueCat with the user's Supabase UUID
-    configureRC(session.user.id)
     fetchSubscription()
-  }, [session.user.id, fetchSubscription])
+  }, [fetchSubscription])
 
   return (
     <SubscriptionContext.Provider value={{ ...state, refresh: fetchSubscription }}>

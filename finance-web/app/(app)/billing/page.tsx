@@ -1,55 +1,310 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSubscription } from '@/hooks/useSubscription'
-import { getOfferings, purchasePackage } from '@/lib/revenuecat'
-import { supabase } from '@/lib/supabase'
-import type { Package } from '@revenuecat/purchases-js'
-import { PurchasesError, ErrorCode } from '@revenuecat/purchases-js'
+import { useAuthToken } from '@/hooks/useAuthToken'
+import {
+  cancelStripeSubscription,
+  reactivateStripeSubscription,
+  changeStripePlan,
+  previewChangePlan,
+  type ChangePlanPreview,
+} from '@/lib/api'
 
 function formatDate(d: Date | null) {
   if (!d) return '—'
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
+// ── Manage subscription section (Pro users only) ─────────────────────────
+
+function ManageSubscription() {
+  const token = useAuthToken()
+  const { isTrialing, trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, periodType, refresh } =
+    useSubscription()
+
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [confirmUpgrade, setConfirmUpgrade] = useState(false)
+  const [upgradePreview, setUpgradePreview] = useState<ChangePlanPreview | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleCancel() {
+    setBusy(true)
+    setError(null)
+    try {
+      await cancelStripeSubscription(token)
+      await refresh()
+      setConfirmCancel(false)
+    } catch {
+      setError('Failed to cancel. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleReactivate() {
+    setBusy(true)
+    setError(null)
+    try {
+      await reactivateStripeSubscription(token)
+      await refresh()
+    } catch {
+      setError('Failed to reactivate. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleInitiateUpgrade() {
+    if (isTrialing) {
+      // No proration during a trial — just show a simple confirmation
+      setConfirmUpgrade(true)
+      return
+    }
+    setPreviewLoading(true)
+    setError(null)
+    try {
+      const preview = await previewChangePlan(token)
+      setUpgradePreview(preview)
+      setConfirmUpgrade(true)
+    } catch {
+      setError('Failed to load upgrade details. Please try again.')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  async function handleConfirmUpgrade() {
+    setBusy(true)
+    setError(null)
+    try {
+      await changeStripePlan(token, 'annual')
+      await refresh()
+      setConfirmUpgrade(false)
+      setUpgradePreview(null)
+    } catch {
+      setError('Failed to switch plan. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-surface-border bg-surface-raised p-6 space-y-5">
+      <h3 className="text-sm font-semibold text-cream">Manage subscription</h3>
+
+      {error && (
+        <p className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</p>
+      )}
+
+      {/* Switch plan — only shown for active monthly subscribers */}
+      {!cancelAtPeriodEnd && !isTrialing && periodType && (
+        <div className="rounded-xl border border-surface-border px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-cream capitalize">{periodType} billing</p>
+              <p className="text-xs text-cream-muted mt-0.5">
+                {periodType === 'annual'
+                  ? '$59.99/year · billed annually'
+                  : '$6.99/month · billed monthly'}
+              </p>
+            </div>
+            {periodType === 'monthly' && (
+              <button
+                onClick={handleInitiateUpgrade}
+                disabled={busy || previewLoading}
+                className="text-xs font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50 whitespace-nowrap ml-4"
+              >
+                {previewLoading ? 'Loading…' : 'Switch to annual (save 29%)'}
+              </button>
+            )}
+          </div>
+
+          {/* Upgrade confirmation with proration details */}
+          {confirmUpgrade && (
+            <div className="space-y-3 pt-2 border-t border-surface-border">
+              <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-4 space-y-1.5">
+                <p className="text-sm font-medium text-cream">Switch to annual billing?</p>
+                {upgradePreview ? (
+                  <p className="text-xs text-cream-muted">
+                    Your annual upgrade total is{' '}
+                    <span className="text-cream font-medium">
+                      ${upgradePreview.invoice_total.toFixed(2)}{' '}
+                    </span>
+                    today, including a{' '}
+                    <span className="text-cream font-medium">
+                      ${upgradePreview.unused_monthly_credit.toFixed(2)}{' '}
+                    </span>
+                    credit for unused monthly time.
+                    {upgradePreview.applied_balance_credit > 0 && (
+                      <>
+                        {' '}After applying your existing{' '}
+                        <span className="text-cream font-medium">
+                          ${upgradePreview.applied_balance_credit.toFixed(2)}{' '}
+                        </span>
+                        account credit, Stripe will charge{' '}
+                        <span className="text-cream font-medium">
+                          ${upgradePreview.amount_due.toFixed(2)}{' '}
+                        </span>
+                        today.
+                      </>
+                    )}
+                    {' '}After that, you'll be billed{' '}
+                    <span className="text-cream font-medium">$59.99/year</span>.
+                  </p>
+                ) : (
+                  <p className="text-xs text-cream-muted">
+                    You'll be billed{' '}
+                    <span className="text-cream font-medium">$59.99/year</span> starting today.
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleConfirmUpgrade}
+                  disabled={busy}
+                  className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors disabled:opacity-50"
+                >
+                  {busy ? 'Switching…' : 'Confirm switch to annual'}
+                </button>
+                <button
+                  onClick={() => { setConfirmUpgrade(false); setUpgradePreview(null) }}
+                  disabled={busy}
+                  className="flex-1 rounded-xl border border-surface-border py-2.5 text-sm font-medium text-cream-muted hover:text-cream transition-colors disabled:opacity-50"
+                >
+                  Keep monthly
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Trial plan info — only upgrade to annual allowed */}
+      {isTrialing && periodType && (
+        <div className="rounded-xl border border-surface-border px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-cream capitalize">{periodType} billing</p>
+              <p className="text-xs text-cream-muted mt-0.5">
+                Starts after trial ends {formatDate(trialEndsAt)}
+              </p>
+            </div>
+            {periodType === 'monthly' && (
+              <button
+                onClick={handleInitiateUpgrade}
+                disabled={busy}
+                className="text-xs font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50 whitespace-nowrap ml-4"
+              >
+                Switch to annual (save 29%)
+              </button>
+            )}
+          </div>
+
+          {/* Trial upgrade confirmation — no proration, just plan change at trial end */}
+          {confirmUpgrade && (
+            <div className="space-y-3 pt-2 border-t border-surface-border">
+              <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-4 space-y-1.5">
+                <p className="text-sm font-medium text-cream">Switch to annual billing?</p>
+                <p className="text-xs text-cream-muted">
+                  You won't be charged now. When your trial ends on{' '}
+                  <span className="text-cream">{formatDate(trialEndsAt)}</span>, you'll be billed{' '}
+                  <span className="text-cream font-medium">$59.99/year</span> instead of
+                  $6.99/month — saving $23.89 per year.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleConfirmUpgrade}
+                  disabled={busy}
+                  className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors disabled:opacity-50"
+                >
+                  {busy ? 'Switching…' : 'Confirm switch to annual'}
+                </button>
+                <button
+                  onClick={() => setConfirmUpgrade(false)}
+                  disabled={busy}
+                  className="flex-1 rounded-xl border border-surface-border py-2.5 text-sm font-medium text-cream-muted hover:text-cream transition-colors disabled:opacity-50"
+                >
+                  Keep monthly
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cancel / reactivate */}
+      {cancelAtPeriodEnd ? (
+        <div className="space-y-3">
+          <div className="rounded-xl bg-warning/10 border border-warning/20 px-4 py-3 text-sm">
+            <p className="font-medium text-warning-display">Cancellation scheduled</p>
+            <p className="text-cream-muted text-xs mt-0.5">
+              Your Pro access continues until {formatDate(currentPeriodEnd ?? trialEndsAt)}.
+            </p>
+          </div>
+          <button
+            onClick={handleReactivate}
+            disabled={busy}
+            className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors disabled:opacity-50"
+          >
+            {busy ? 'Reactivating…' : 'Keep Pro subscription'}
+          </button>
+        </div>
+      ) : confirmCancel ? (
+        <div className="space-y-3">
+          <div className="rounded-xl border border-danger/25 bg-danger/10 px-4 py-4 space-y-1">
+            <p className="text-sm font-medium text-danger">Cancel subscription?</p>
+            <p className="text-xs text-cream-muted">
+              You'll keep Pro access until{' '}
+              <span className="text-cream">{formatDate(currentPeriodEnd ?? trialEndsAt ?? null)}</span>.
+              After that, your account reverts to the free plan.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCancel}
+              disabled={busy}
+              className="flex-1 rounded-xl bg-danger py-2.5 text-sm font-semibold text-white hover:bg-danger/80 transition-colors disabled:opacity-50"
+            >
+              {busy ? 'Cancelling…' : 'Yes, cancel'}
+            </button>
+            <button
+              onClick={() => setConfirmCancel(false)}
+              disabled={busy}
+              className="flex-1 rounded-xl border border-surface-border py-2.5 text-sm font-medium text-cream-muted hover:text-cream transition-colors disabled:opacity-50"
+            >
+              Keep Pro
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setConfirmCancel(true)}
+          disabled={busy}
+          className="w-full rounded-xl border border-surface-border py-2.5 text-sm font-medium text-cream-muted hover:text-danger hover:border-danger/30 transition-colors disabled:opacity-50"
+        >
+          Cancel subscription
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Main billing page ─────────────────────────────────────────────────────
+
 export default function BillingPage() {
-  const { tier, isPro, isTrialing, trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, periodType, loading, refresh } =
+  const router = useRouter()
+  const { tier, isPro, isTrialing, trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, periodType, trialEligible, loading } =
     useSubscription()
 
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
-  const [offerings, setOfferings] = useState<{ monthly: Package | null; annual: Package | null }>({
-    monthly: null,
-    annual: null,
-  })
-  const [purchasing, setPurchasing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState('')
 
-  useEffect(() => {
-    getOfferings().then(setOfferings).catch(() => null)
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.email) setUserEmail(user.email)
-    })
-  }, [])
-
-  async function handleUpgrade() {
-    const pkg = billing === 'annual' ? offerings.annual : offerings.monthly
-    if (!pkg) {
-      setError('Payment system is not configured yet. Check back soon.')
-      return
-    }
-    setPurchasing(true)
-    setError(null)
-    try {
-      await purchasePackage(pkg, userEmail)
-      refresh()
-    } catch (err) {
-      if (!(err instanceof PurchasesError && err.errorCode === ErrorCode.UserCancelledError)) {
-        setError('Purchase failed. Please try again.')
-      }
-    } finally {
-      setPurchasing(false)
-    }
+  function handleUpgrade() {
+    router.push(`/checkout?plan=${billing}`)
   }
 
   if (loading) {
@@ -82,9 +337,7 @@ export default function BillingPage() {
               )}
             </div>
           </div>
-          {isPro && (
-            <span className="text-2xl">⭐</span>
-          )}
+          {isPro && <span className="text-2xl">⭐</span>}
         </div>
 
         {isPro && isTrialing && trialEndsAt && (
@@ -96,16 +349,7 @@ export default function BillingPage() {
           </div>
         )}
 
-        {isPro && cancelAtPeriodEnd && currentPeriodEnd && (
-          <div className="rounded-xl bg-warning/10 px-4 py-3 text-sm">
-            <p className="font-medium text-warning-display">Cancellation scheduled</p>
-            <p className="text-cream-muted text-xs mt-0.5">
-              Pro access continues until {formatDate(currentPeriodEnd)}.
-            </p>
-          </div>
-        )}
-
-        {isPro && !cancelAtPeriodEnd && currentPeriodEnd && (
+        {isPro && !cancelAtPeriodEnd && currentPeriodEnd && !isTrialing && (
           <p className="text-xs text-cream-muted">
             Next billing date: <span className="text-cream">{formatDate(currentPeriodEnd)}</span>
           </p>
@@ -118,7 +362,10 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* Upgrade section (only shown for free users) */}
+      {/* Subscription management actions (Pro users) */}
+      {isPro && <ManageSubscription />}
+
+      {/* Upgrade section (free users only) */}
       {!isPro && (
         <div className="rounded-2xl border border-accent/30 bg-accent/5 p-6 space-y-5">
           <div>
@@ -128,7 +375,6 @@ export default function BillingPage() {
             </p>
           </div>
 
-          {/* Billing toggle */}
           <div className="flex items-center gap-0 rounded-xl bg-surface p-1 ring-1 ring-surface-border">
             {(['annual', 'monthly'] as const).map((b) => (
               <button
@@ -159,17 +405,16 @@ export default function BillingPage() {
             <p className="text-xs text-success font-medium -mt-3">$5.00/month · save 29%</p>
           )}
 
-          {error && <p className="text-sm text-danger">{error}</p>}
-
           <button
             onClick={handleUpgrade}
-            disabled={purchasing}
-            className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-contrast hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors"
           >
-            {purchasing ? 'Opening checkout…' : 'Start 7-day free trial'}
+            {trialEligible ? 'Start 7-day free trial' : `Subscribe for ${billing === 'annual' ? '$59.99/year' : '$6.99/month'}`}
           </button>
           <p className="text-center text-xs text-cream-muted">
-            Try Pro free for 7 days, then {billing === 'annual' ? '$59.99/year' : '$6.99/month'}. Cancel anytime.
+            {trialEligible
+              ? `Try Pro free for 7 days, then ${billing === 'annual' ? '$59.99/year' : '$6.99/month'}. Cancel anytime.`
+              : 'You will be charged today. Cancel anytime.'}
           </p>
         </div>
       )}

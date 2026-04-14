@@ -53,8 +53,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Onboarding page gets no sidebar
-  if (pathname === '/onboarding') {
+  // Onboarding and checkout pages get no sidebar
+  if (pathname === '/onboarding' || pathname === '/checkout') {
     return (
       <AuthTokenContext.Provider value={session?.access_token ?? null}>
         <SubscriptionProvider session={session!}>

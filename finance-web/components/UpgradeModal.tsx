@@ -3,13 +3,9 @@
 // UpgradeModal — shown when a free user tries to access a Pro feature.
 // Usage: <UpgradeModal feature="savings goals" onClose={() => setShowModal(false)} />
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getOfferings, purchasePackage } from '@/lib/revenuecat'
 import { useSubscription } from '@/hooks/useSubscription'
-import { supabase } from '@/lib/supabase'
-import type { Package } from '@revenuecat/purchases-js'
-import { PurchasesError, ErrorCode } from '@revenuecat/purchases-js'
 
 interface UpgradeModalProps {
   feature: string
@@ -18,45 +14,12 @@ interface UpgradeModalProps {
 
 export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
   const router = useRouter()
-  const { refresh } = useSubscription()
+  const { trialEligible } = useSubscription()
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
-  const [offerings, setOfferings] = useState<{ monthly: Package | null; annual: Package | null }>({
-    monthly: null,
-    annual: null,
-  })
-  const [purchasing, setPurchasing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState('')
 
-  useEffect(() => {
-    getOfferings().then(setOfferings).catch(() => null)
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.email) setUserEmail(user.email)
-    })
-  }, [])
-
-  async function handleUpgrade() {
-    const pkg = billing === 'annual' ? offerings.annual : offerings.monthly
-    if (!pkg) {
-      router.push('/billing')
-      onClose()
-      return
-    }
-    setPurchasing(true)
-    setError(null)
-    try {
-      await purchasePackage(pkg, userEmail)
-      refresh()
-      onClose()
-    } catch (err) {
-      if (err instanceof PurchasesError && err.errorCode === ErrorCode.UserCancelledError) {
-        // User closed checkout — no error shown
-      } else {
-        setError('Purchase failed. Try from the Billing page.')
-      }
-    } finally {
-      setPurchasing(false)
-    }
+  function handleUpgrade() {
+    router.push(`/checkout?plan=${billing}`)
+    onClose()
   }
 
   return (
@@ -131,18 +94,15 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
           </ul>
         </div>
 
-        {error && <p className="text-xs text-danger">{error}</p>}
-
         <div className="space-y-2">
           <button
             onClick={handleUpgrade}
-            disabled={purchasing}
-            className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-contrast hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors"
           >
-            {purchasing ? 'Opening checkout…' : 'Start 7-day free trial'}
+            {trialEligible ? 'Start 7-day free trial' : `Subscribe for ${billing === 'annual' ? '$59.99/year' : '$6.99/month'}`}
           </button>
           <p className="text-center text-[11px] text-cream-muted">
-            Try Pro free for 7 days. Cancel anytime.
+            {trialEligible ? 'Try Pro free for 7 days. Cancel anytime.' : 'You will be charged today. Cancel anytime.'}
           </p>
           <button
             onClick={onClose}

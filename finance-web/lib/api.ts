@@ -354,12 +354,67 @@ export interface SubscriptionInfo {
   tier: 'free' | 'pro'
   period_type: 'monthly' | 'annual' | null
   trial_ends_at: string | null
+  trial_eligible: boolean
   current_period_end: string | null
   cancel_at_period_end: boolean
 }
 
 export async function getSubscription(token: string): Promise<SubscriptionInfo> {
   return apiFetch<SubscriptionInfo>('/subscriptions/me', token)
+}
+
+export async function createStripeSubscription(
+  token: string,
+  plan: 'monthly' | 'annual',
+): Promise<{ client_secret: string; subscription_id: string; has_trial: boolean }> {
+  return apiFetch('/stripe/create-subscription', token, {
+    method: 'POST',
+    body: JSON.stringify({ plan }),
+  })
+}
+
+export async function createStripePortalSession(token: string): Promise<{ url: string }> {
+  return apiFetch('/stripe/create-portal-session', token, { method: 'POST' })
+}
+
+export async function cancelStripeSubscription(token: string): Promise<void> {
+  return apiFetch('/stripe/cancel-subscription', token, { method: 'POST' })
+}
+
+export async function reactivateStripeSubscription(token: string): Promise<void> {
+  return apiFetch('/stripe/reactivate-subscription', token, { method: 'POST' })
+}
+
+export async function activateStripeSubscription(
+  token: string,
+  plan: 'monthly' | 'annual',
+): Promise<void> {
+  return apiFetch('/stripe/activate-subscription', token, {
+    method: 'POST',
+    body: JSON.stringify({ plan }),
+  })
+}
+
+export async function changeStripePlan(
+  token: string,
+  plan: 'monthly' | 'annual',
+): Promise<void> {
+  return apiFetch('/stripe/change-plan', token, {
+    method: 'POST',
+    body: JSON.stringify({ plan }),
+  })
+}
+
+export interface ChangePlanPreview {
+  amount_due: number
+  invoice_total: number
+  unused_monthly_credit: number
+  applied_balance_credit: number
+  currency: string
+}
+
+export async function previewChangePlan(token: string): Promise<ChangePlanPreview> {
+  return apiFetch<ChangePlanPreview>('/stripe/change-plan-preview?plan=annual', token)
 }
 
 // ── Plaid ──────────────────────────────────────────────────────────────────
