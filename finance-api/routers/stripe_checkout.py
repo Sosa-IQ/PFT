@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from supabase import Client
 
 from middleware.auth import get_current_user, get_supabase_client
+from services.revenuecat import sync_stripe_subscription
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +52,12 @@ def _get_or_create_stripe_customer(
     rows = result.data or []
     existing = rows[0].get("stripe_customer_id") if rows else None
     if existing:
+        client.customers.update(existing, params={"metadata": _stripe_metadata(user_id)})
         return existing
 
-    customer = client.customers.create(params={"email": email, "metadata": {"user_id": user_id}})
+    customer = client.customers.create(
+        params={"email": email, "metadata": _stripe_metadata(user_id)}
+    )
     db.table("user_subscriptions").upsert(
         {"user_id": user_id, "stripe_customer_id": customer.id},
         on_conflict="user_id",
@@ -73,6 +77,23 @@ def _stripe_value(obj, key: str):
     if isinstance(obj, dict):
         return obj.get(key)
     return getattr(obj, key, None)
+
+
+def _stripe_get(obj, key: str):
+    """Read a key from dicts and StripeObjects without assuming Mapping methods."""
+    if not obj:
+        return None
+    if isinstance(obj, dict):
+        return obj.get(key)
+    try:
+        return obj[key]
+    except (KeyError, TypeError):
+        return getattr(obj, key, None)
+
+
+def _stripe_metadata(user_id: str) -> dict:
+    """Metadata keys RevenueCat and our webhook can use to identify the app user."""
+    return {"user_id": user_id, "app_user_id": user_id}
 
 
 def _stripe_id(obj) -> Optional[str]:
@@ -143,10 +164,13 @@ def _annual_upgrade_params(
     return params
 
 
-def _upsert_from_subscription(db: Client, subscription) -> None:
+def _upsert_from_subscription(db: Client, subscription) -> Optional[str]:
     """Update user_subscriptions from a Stripe Subscription object (from a webhook event).
     Accepts both StripeObject (from webhook) and plain dict."""
-    customer_id = subscription.customer
+    customer_id = _stripe_value(subscription, "customer")
+    metadata = _stripe_value(subscription, "metadata") or {}
+    user_id = _stripe_get(metadata, "app_user_id") or _stripe_get(metadata, "user_id")
+
     result = (
         db.table("user_subscriptions")
         .select("user_id")
@@ -155,17 +179,22 @@ def _upsert_from_subscription(db: Client, subscription) -> None:
         .execute()
     )
     rows = result.data or []
-    if not rows:
+    if rows:
+        user_id = rows[0]["user_id"]
+
+    if not user_id:
         logger.warning("Stripe webhook: no user found for customer %s", customer_id)
-        return
+        return None
 
-    user_id = rows[0]["user_id"]
-    price_id = subscription.items.data[0].price.id
-    sub_status = subscription.status  # trialing, active, past_due, canceled, etc.
-    # Use getattr for optional fields — StripeObject raises AttributeError on missing keys
-    cancel_at_period_end = getattr(subscription, "cancel_at_period_end", False)
+    items = _stripe_value(subscription, "items")
+    item_data = _stripe_value(items, "data") or []
+    first_item = item_data[0] if item_data else {}
+    price = _stripe_value(first_item, "price") or {}
+    price_id = _stripe_value(price, "id")
+    sub_status = _stripe_value(subscription, "status")  # trialing, active, past_due, canceled, etc.
+    cancel_at_period_end = _stripe_value(subscription, "cancel_at_period_end") or False
 
-    trial_end_ts = getattr(subscription, "trial_end", None)
+    trial_end_ts = _stripe_value(subscription, "trial_end")
     trial_ends_at = (
         datetime.fromtimestamp(trial_end_ts, tz=timezone.utc).isoformat()
         if trial_end_ts else None
@@ -190,7 +219,8 @@ def _upsert_from_subscription(db: Client, subscription) -> None:
         "period_type": _period_type_from_price(price_id),
         "trial_ends_at": trial_ends_at,
         "cancel_at_period_end": cancel_at_period_end,
-        "stripe_subscription_id": subscription.id,
+        "stripe_customer_id": customer_id,
+        "stripe_subscription_id": _stripe_value(subscription, "id"),
         "updated_at": datetime.now(tz=timezone.utc).isoformat(),
     }
     # Only write current_period_end when Stripe provides it. Newer API versions may omit
@@ -201,6 +231,7 @@ def _upsert_from_subscription(db: Client, subscription) -> None:
 
     db.table("user_subscriptions").upsert(upsert_data, on_conflict="user_id").execute()
     logger.info("Updated subscription for user %s: tier=%s status=%s", user_id, tier, sub_status)
+    return user_id
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +292,7 @@ async def create_subscription(
             if psi and getattr(psi, "client_secret", None):
                 # Card not yet collected — reuse this subscription's setup intent
                 logger.info("Reusing existing subscription %s for user %s", sub.id, user_id)
+                sync_stripe_subscription(user_id, sub.id)
                 return CreateSubscriptionResponse(
                     client_secret=psi.client_secret,
                     subscription_id=sub.id,
@@ -292,6 +324,7 @@ async def create_subscription(
             "customer": customer_id,
             "usage": "off_session",
             "automatic_payment_methods": {"enabled": True},
+            "metadata": _stripe_metadata(user_id),
         })
         client_secret = getattr(setup_intent, "client_secret", None)
         if not client_secret:
@@ -309,6 +342,7 @@ async def create_subscription(
                 "trial_period_days": 7,
                 "payment_behavior": "default_incomplete",
                 "payment_settings": {"save_default_payment_method": "on_subscription"},
+                "metadata": _stripe_metadata(user_id),
                 "expand": ["pending_setup_intent"],
             }
         )
@@ -326,6 +360,7 @@ async def create_subscription(
             {"user_id": user_id, "stripe_subscription_id": subscription.id},
             on_conflict="user_id",
         ).execute()
+        sync_stripe_subscription(user_id, subscription.id)
         subscription_id = subscription.id
     else:
         subscription_id = ""
@@ -466,6 +501,7 @@ def cancel_subscription(
         update_data["current_period_end"] = current_period_end
 
     db.table("user_subscriptions").update(update_data).eq("user_id", user_id).execute()
+    sync_stripe_subscription(user_id, sub_id)
     logger.info("Scheduled cancellation for user %s subscription %s", user_id, sub_id)
     return {"ok": True}
 
@@ -489,6 +525,7 @@ def reactivate_subscription(
     db.table("user_subscriptions").update(
         {"cancel_at_period_end": False, "updated_at": datetime.now(tz=timezone.utc).isoformat()}
     ).eq("user_id", user_id).execute()
+    sync_stripe_subscription(user_id, sub_id)
     logger.info("Reactivated subscription for user %s", user_id)
     return {"ok": True}
 
@@ -548,12 +585,14 @@ def activate_subscription(
         "items": [{"price": price_id}],
         "default_payment_method": pm_id,
         "payment_settings": {"save_default_payment_method": "on_subscription"},
+        "metadata": _stripe_metadata(user_id),
     })
 
     db.table("user_subscriptions").upsert(
         {"user_id": user_id, "stripe_subscription_id": subscription.id},
         on_conflict="user_id",
     ).execute()
+    sync_stripe_subscription(user_id, subscription.id)
     logger.info("activate_subscription: created sub %s for user %s", subscription.id, user_id)
     return {"ok": True}
 
@@ -611,6 +650,7 @@ def change_plan(
     db.table("user_subscriptions").update(
         {"period_type": body.plan, "updated_at": datetime.now(tz=timezone.utc).isoformat()}
     ).eq("user_id", user_id).execute()
+    sync_stripe_subscription(user_id, sub_id)
     logger.info("Changed plan for user %s to %s", user_id, body.plan)
     return {"ok": True}
 
@@ -717,10 +757,13 @@ async def stripe_webhook(
     logger.info("Stripe webhook received: %s", event_type)
 
     if event_type in ("customer.subscription.created", "customer.subscription.updated"):
-        _upsert_from_subscription(db, data)
+        user_id = _upsert_from_subscription(db, data)
+        if user_id:
+            sync_stripe_subscription(user_id, _stripe_value(data, "id"))
 
     elif event_type == "customer.subscription.deleted":
-        customer_id = data.customer
+        customer_id = _stripe_value(data, "customer")
+        metadata = _stripe_value(data, "metadata") or {}
         result = (
             db.table("user_subscriptions")
             .select("user_id")
@@ -729,8 +772,12 @@ async def stripe_webhook(
             .execute()
         )
         rows = result.data or []
-        if rows:
-            user_id = rows[0]["user_id"]
+        user_id = (
+            rows[0]["user_id"]
+            if rows
+            else _stripe_get(metadata, "app_user_id") or _stripe_get(metadata, "user_id")
+        )
+        if user_id:
             db.table("user_subscriptions").upsert(
                 {
                     "user_id": user_id,
@@ -739,10 +786,13 @@ async def stripe_webhook(
                     "trial_ends_at": None,
                     "current_period_end": None,
                     "cancel_at_period_end": False,
+                    "stripe_customer_id": customer_id,
+                    "stripe_subscription_id": _stripe_value(data, "id"),
                     "updated_at": datetime.now(tz=timezone.utc).isoformat(),
                 },
                 on_conflict="user_id",
             ).execute()
+            sync_stripe_subscription(user_id, _stripe_value(data, "id"))
             logger.info("Downgraded user %s to free (subscription deleted)", user_id)
 
     else:
