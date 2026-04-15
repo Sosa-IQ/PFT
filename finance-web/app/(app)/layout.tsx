@@ -25,9 +25,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       } else {
         setSession(session)
         setLoading(false)
-        // Redirect new users to onboarding (unless they're already there)
+        // Redirect new users to onboarding, but allow checkout so card setup
+        // can finish when they choose Pro during onboarding.
         const completed = session.user.user_metadata?.onboarding_completed
-        if (!completed && pathname !== '/onboarding') {
+        if (!completed && pathname !== '/onboarding' && pathname !== '/checkout') {
           router.replace('/onboarding')
         }
       }

@@ -50,12 +50,12 @@ function CardForm({
     setSubmitting(true)
     setError(null)
 
-    // For no-trial, append activate=1 so the redirect-return handler knows to
-    // call /stripe/activate-subscription before redirecting to the dashboard.
-    const returnUrl = `${window.location.origin}/checkout?plan=${plan}&redirect_status=succeeded${!hasTrial ? '&activate=1' : ''}`
+    // Always activate after card setup succeeds. The backend decides whether
+    // this customer receives a trial when it creates the subscription.
+    const returnUrl = `${window.location.origin}/checkout?plan=${plan}&redirect_status=succeeded&activate=1`
 
-    // Both trial and no-trial use confirmSetup — the no-trial path collects the
-    // card via a SetupIntent; the actual subscription is created separately.
+    // Both trial and no-trial use confirmSetup; the actual subscription is
+    // created only after Stripe confirms the saved payment method.
     const { error: stripeError } = await stripe.confirmSetup({
       elements,
       confirmParams: { return_url: returnUrl },
@@ -66,7 +66,7 @@ function CardForm({
       setError(stripeError.message ?? 'Something went wrong. Please try again.')
       setSubmitting(false)
     } else {
-      onSuccess(!hasTrial)
+      onSuccess(true)
     }
   }
 
@@ -119,7 +119,7 @@ function CheckoutInner() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   // Called after card is confirmed (inline or via 3DS redirect).
-  // For no-trial, creates the actual subscription before redirecting.
+  // Creates the subscription before redirecting.
   const handleSuccess = useCallback(async (activate: boolean) => {
     if (activate) {
       try {

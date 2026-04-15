@@ -2,7 +2,7 @@
 routers/stripe_checkout.py — Stripe payment processing for web subscriptions.
 
 Endpoints:
-    POST /stripe/create-subscription   → Create Stripe customer + subscription (7-day trial)
+    POST /stripe/create-subscription   → Create Stripe customer + SetupIntent
     POST /stripe/create-portal-session → Create Stripe Customer Portal session
     POST /webhooks/stripe              → Stripe webhook handler (public, validated via signature)
 """
@@ -259,9 +259,8 @@ async def create_subscription(
     db: Client = Depends(get_supabase_client),
 ):
     """
-    Create a Stripe subscription with a 7-day trial.
-    Returns the pending_setup_intent client_secret so the frontend can collect
-    card details without charging the user during the trial period.
+    Create a Stripe SetupIntent so the frontend can collect card details.
+    The actual subscription is created only after card setup succeeds.
     """
     client = _stripe_client()
 
@@ -278,8 +277,8 @@ async def create_subscription(
     customer_id = _get_or_create_stripe_customer(client, db, user_id, email)
 
     # Check for any existing subscriptions to avoid creating duplicates.
-    # React Strict Mode fires effects twice in dev, and users may also reload the
-    # checkout page — both cases would create duplicate subscriptions without this check.
+    # Legacy trial subscriptions may still have a pending SetupIntent from the
+    # old flow; reuse that intent so those users can finish adding a card.
     existing = client.subscriptions.list(params={
         "customer": customer_id,
         "limit": 10,
@@ -315,60 +314,21 @@ async def create_subscription(
     })
     had_prior_subscription = len(prior_subs.data) > 0
 
-    if had_prior_subscription:
-        # No trial — collect the card via a SetupIntent first.
-        # We avoid the payment_intent-on-invoice path entirely (unreliable across
-        # Stripe API versions).  The actual subscription is created by the
-        # /stripe/activate-subscription endpoint after the card is confirmed.
-        setup_intent = client.setup_intents.create(params={
-            "customer": customer_id,
-            "usage": "off_session",
-            "automatic_payment_methods": {"enabled": True},
-            "metadata": _stripe_metadata(user_id),
-        })
-        client_secret = getattr(setup_intent, "client_secret", None)
-        if not client_secret:
-            logger.error("create_subscription: no client_secret on setup_intent for customer %s", customer_id)
-            raise HTTPException(status_code=500, detail="Failed to initialize payment setup.")
-        has_trial = False
-    else:
-        # First-time subscriber — grant a 7-day trial.
-        # trial_period_days makes the first invoice $0, so Stripe attaches a
-        # pending_setup_intent (not a payment_intent) to collect the card upfront.
-        subscription = client.subscriptions.create(
-            params={
-                "customer": customer_id,
-                "items": [{"price": price_id}],
-                "trial_period_days": 7,
-                "payment_behavior": "default_incomplete",
-                "payment_settings": {"save_default_payment_method": "on_subscription"},
-                "metadata": _stripe_metadata(user_id),
-                "expand": ["pending_setup_intent"],
-            }
-        )
-        setup_intent = subscription.pending_setup_intent
-        client_secret = getattr(setup_intent, "client_secret", None) if setup_intent else None
-        if not client_secret:
-            logger.error("create_subscription: no setup_intent client_secret on sub %s", subscription.id)
-            raise HTTPException(status_code=500, detail="Failed to initialize payment setup.")
-        has_trial = True
-
-    if has_trial:
-        # Store subscription ID immediately so cancel/change-plan endpoints can find it.
-        # For no-trial, there is no subscription yet — activate_subscription writes it.
-        db.table("user_subscriptions").upsert(
-            {"user_id": user_id, "stripe_subscription_id": subscription.id},
-            on_conflict="user_id",
-        ).execute()
-        sync_stripe_subscription(user_id, subscription.id)
-        subscription_id = subscription.id
-    else:
-        subscription_id = ""
+    setup_intent = client.setup_intents.create(params={
+        "customer": customer_id,
+        "usage": "off_session",
+        "automatic_payment_methods": {"enabled": True},
+        "metadata": _stripe_metadata(user_id),
+    })
+    client_secret = getattr(setup_intent, "client_secret", None)
+    if not client_secret:
+        logger.error("create_subscription: no client_secret on setup_intent for customer %s", customer_id)
+        raise HTTPException(status_code=500, detail="Failed to initialize payment setup.")
 
     return CreateSubscriptionResponse(
         client_secret=client_secret,
-        subscription_id=subscription_id,
-        has_trial=has_trial,
+        subscription_id="",
+        has_trial=not had_prior_subscription,
     )
 
 
@@ -534,9 +494,9 @@ def reactivate_subscription(
 # POST /stripe/activate-subscription
 # ---------------------------------------------------------------------------
 #
-# Called by the frontend after a returning subscriber confirms their card via
-# SetupIntent.  Creates the actual subscription using the saved payment method
-# so Stripe charges immediately (no trial, no incomplete state).
+# Called by the frontend after a subscriber confirms their card via SetupIntent.
+# Creates the actual subscription using the saved payment method; first-time
+# subscribers receive the 7-day trial here, after card collection.
 
 class ActivateSubscriptionRequest(BaseModel):
     plan: str  # 'monthly' | 'annual'
@@ -548,7 +508,7 @@ def activate_subscription(
     user: dict = Depends(get_current_user),
     db: Client = Depends(get_supabase_client),
 ):
-    """Create and immediately charge a subscription for a returning customer."""
+    """Create a subscription after card setup succeeds."""
     client = _stripe_client()
     user_id = user["id"]
 
@@ -564,9 +524,19 @@ def activate_subscription(
 
     # Idempotency: if the customer already has an active/trialing subscription, nothing to do.
     existing = client.subscriptions.list(params={"customer": customer_id, "limit": 5})
-    if any(s.status in ("active", "trialing") for s in existing.data):
+    active_subscription = next((s for s in existing.data if s.status in ("active", "trialing")), None)
+    if active_subscription:
         logger.info("activate_subscription: user %s already has an active subscription", user_id)
+        _upsert_from_subscription(db, active_subscription)
+        sync_stripe_subscription(user_id, active_subscription.id)
         return {"ok": True}
+
+    prior_subs = client.subscriptions.list(params={
+        "customer": customer_id,
+        "status": "canceled",
+        "limit": 1,
+    })
+    had_prior_subscription = len(existing.data) > 0 or len(prior_subs.data) > 0
 
     # Use the most recently created payment method attached to this customer.
     pms = client.payment_methods.list(params={"customer": customer_id, "limit": 1})
@@ -580,18 +550,19 @@ def activate_subscription(
         params={"invoice_settings": {"default_payment_method": pm_id}},
     )
 
-    subscription = client.subscriptions.create(params={
+    subscription_params = {
         "customer": customer_id,
         "items": [{"price": price_id}],
         "default_payment_method": pm_id,
         "payment_settings": {"save_default_payment_method": "on_subscription"},
         "metadata": _stripe_metadata(user_id),
-    })
+    }
+    if not had_prior_subscription:
+        subscription_params["trial_period_days"] = 7
 
-    db.table("user_subscriptions").upsert(
-        {"user_id": user_id, "stripe_subscription_id": subscription.id},
-        on_conflict="user_id",
-    ).execute()
+    subscription = client.subscriptions.create(params=subscription_params)
+
+    _upsert_from_subscription(db, subscription)
     sync_stripe_subscription(user_id, subscription.id)
     logger.info("activate_subscription: created sub %s for user %s", subscription.id, user_id)
     return {"ok": True}
