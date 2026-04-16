@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import type { Session } from '@supabase/supabase-js'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import ThemeToggle from '@/components/ThemeToggle'
 
@@ -21,8 +22,10 @@ const navItems = [
 export default function NavSidebar({ session }: { session: Session | null }) {
   const pathname = usePathname()
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   async function handleSignOut() {
+    queryClient.clear()
     await supabase.auth.signOut()
     router.replace('/login')
   }

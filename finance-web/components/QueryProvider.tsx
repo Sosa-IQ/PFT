@@ -1,7 +1,40 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+
+function AuthCacheBoundary({ queryClient }: { queryClient: QueryClient }) {
+  const userIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active) userIdRef.current = session?.user.id ?? null
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUserId = session?.user.id ?? null
+      const previousUserId = userIdRef.current
+
+      if (event === 'SIGNED_OUT' || (previousUserId && nextUserId && previousUserId !== nextUserId)) {
+        queryClient.clear()
+      }
+
+      userIdRef.current = nextUserId
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [queryClient])
+
+  return null
+}
 
 export default function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -18,5 +51,10 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
       }),
   )
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthCacheBoundary queryClient={queryClient} />
+      {children}
+    </QueryClientProvider>
+  )
 }

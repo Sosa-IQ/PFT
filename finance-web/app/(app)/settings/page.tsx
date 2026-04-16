@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { getLinkToken } from '@/lib/api'
 import { usePlaidLink } from 'react-plaid-link'
@@ -189,6 +190,7 @@ function DevToolsCard() {
 
 export default function SettingsPage() {
   const authToken = useAuthToken()
+  const queryClient = useQueryClient()
   const { data: accounts = [], isLoading } = useAccounts()
   const syncMutation = useSyncTransactions()
   const exchangeMutation = useExchangePlaidToken()
@@ -439,6 +441,7 @@ export default function SettingsPage() {
 
         <button
           onClick={async () => {
+            queryClient.clear()
             await supabase.auth.signOut()
             window.location.href = '/login'
           }}
