@@ -8,12 +8,15 @@ tokens so the same app_user_id unlocks entitlements on web and mobile.
 import json
 import logging
 import os
+import time
 from typing import Optional
 from urllib import error, request
 
 logger = logging.getLogger(__name__)
 
 REVENUECAT_API_BASE = "https://api.revenuecat.com/v1"
+RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504, 529}
+RETRY_DELAYS_SECONDS = (1, 2, 4)
 
 
 def _api_key() -> Optional[str]:
@@ -53,6 +56,16 @@ def _post(path: str, payload: dict, *, platform: Optional[str] = None) -> None:
             raise RuntimeError(f"RevenueCat API returned HTTP {response.status}")
 
 
+def _retry_delay(exc: error.HTTPError, attempt_index: int) -> int:
+    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+    if retry_after:
+        try:
+            return max(1, min(int(retry_after), 10))
+        except ValueError:
+            pass
+    return RETRY_DELAYS_SECONDS[attempt_index]
+
+
 def sync_stripe_subscription(
     app_user_id: str,
     stripe_subscription_id: str,
@@ -72,33 +85,55 @@ def sync_stripe_subscription(
         )
         return False
 
-    try:
-        _post(
-            "/receipts",
-            {"app_user_id": app_user_id, "fetch_token": stripe_subscription_id},
-            platform="stripe",
-        )
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        logger.warning(
-            "RevenueCat Stripe sync failed for user %s subscription %s: HTTP %s %s",
-            app_user_id,
-            stripe_subscription_id,
-            exc.code,
-            detail,
-        )
-        if raise_on_error:
-            raise
-        return False
-    except (RuntimeError, error.URLError) as exc:
-        logger.warning(
-            "RevenueCat Stripe sync failed for user %s subscription %s: %s",
-            app_user_id,
-            stripe_subscription_id,
-            exc,
-        )
-        if raise_on_error:
-            raise
+    last_http_error: Optional[error.HTTPError] = None
+
+    for attempt in range(len(RETRY_DELAYS_SECONDS) + 1):
+        try:
+            _post(
+                "/receipts",
+                {"app_user_id": app_user_id, "fetch_token": stripe_subscription_id},
+                platform="stripe",
+            )
+            break
+        except error.HTTPError as exc:
+            last_http_error = exc
+            detail = exc.read().decode("utf-8", errors="replace")
+            can_retry = exc.code in RETRYABLE_HTTP_CODES and attempt < len(RETRY_DELAYS_SECONDS)
+            if can_retry:
+                delay = _retry_delay(exc, attempt)
+                logger.warning(
+                    "RevenueCat Stripe sync retrying for user %s subscription %s after HTTP %s %s",
+                    app_user_id,
+                    stripe_subscription_id,
+                    exc.code,
+                    detail,
+                )
+                time.sleep(delay)
+                continue
+
+            logger.warning(
+                "RevenueCat Stripe sync failed for user %s subscription %s: HTTP %s %s",
+                app_user_id,
+                stripe_subscription_id,
+                exc.code,
+                detail,
+            )
+            if raise_on_error:
+                raise
+            return False
+        except (RuntimeError, error.URLError) as exc:
+            logger.warning(
+                "RevenueCat Stripe sync failed for user %s subscription %s: %s",
+                app_user_id,
+                stripe_subscription_id,
+                exc,
+            )
+            if raise_on_error:
+                raise
+            return False
+    else:
+        if raise_on_error and last_http_error:
+            raise last_http_error
         return False
 
     logger.info(

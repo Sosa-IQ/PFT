@@ -164,6 +164,20 @@ def _annual_upgrade_params(
     return params
 
 
+def _subscription_has_active_trial(subscription, now_ts: int) -> bool:
+    trial_end_ts = _stripe_value(subscription, "trial_end")
+    return _stripe_value(subscription, "status") == "trialing" and bool(
+        trial_end_ts and trial_end_ts > now_ts
+    )
+
+
+def _trial_plan_change_params(subscription_item, price_id: str) -> dict:
+    return {
+        "items": [{"id": subscription_item.id, "price": price_id}],
+        "proration_behavior": "none",
+    }
+
+
 def _upsert_from_subscription(db: Client, subscription) -> Optional[str]:
     """Update user_subscriptions from a Stripe Subscription object (from a webhook event).
     Accepts both StripeObject (from webhook) and plain dict."""
@@ -583,6 +597,9 @@ def change_plan(
     db: Client = Depends(get_supabase_client),
 ):
     """Switch the subscription between monthly and annual billing."""
+    if body.plan not in ("monthly", "annual"):
+        raise HTTPException(status_code=400, detail="Invalid billing plan.")
+
     client = _stripe_client()
     user_id = user["id"]
 
@@ -597,13 +614,17 @@ def change_plan(
     sub_id = _get_subscription_id(db, user_id)
     subscription = client.subscriptions.retrieve(sub_id)
     subscription_item = subscription.items.data[0]
+    now_ts = int(datetime.now(tz=timezone.utc).timestamp())
 
-    update_params = {
-        "items": [{"id": subscription_item.id, "price": new_price_id}],
-        "billing_cycle_anchor": "now",
-        "proration_behavior": "always_invoice",
-    }
-    if body.plan == "annual":
+    if _stripe_value(subscription, "cancel_at_period_end"):
+        raise HTTPException(
+            status_code=400,
+            detail="Reactivate your subscription before switching billing plans.",
+        )
+
+    if _subscription_has_active_trial(subscription, now_ts):
+        update_params = _trial_plan_change_params(subscription_item, new_price_id)
+    elif body.plan == "annual":
         annual_price = client.v1.prices.retrieve(new_price_id)
         annual_product_id = _stripe_id(annual_price.product)
         if not annual_product_id:
@@ -613,14 +634,17 @@ def change_plan(
             new_price_id,
             annual_price.currency,
             annual_product_id,
-            int(datetime.now(tz=timezone.utc).timestamp()),
+            now_ts,
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Switching to monthly billing is only available during an active trial.",
         )
 
-    client.subscriptions.update(sub_id, params=update_params)
+    updated_subscription = client.subscriptions.update(sub_id, params=update_params)
+    _upsert_from_subscription(db, updated_subscription)
 
-    db.table("user_subscriptions").update(
-        {"period_type": body.plan, "updated_at": datetime.now(tz=timezone.utc).isoformat()}
-    ).eq("user_id", user_id).execute()
     sync_stripe_subscription(user_id, sub_id)
     logger.info("Changed plan for user %s to %s", user_id, body.plan)
     return {"ok": True}
@@ -662,13 +686,17 @@ def preview_change_plan(
     annual_product_id = _stripe_id(annual_price.product)
     if not annual_product_id:
         raise HTTPException(status_code=500, detail="Stripe annual product is not configured.")
-    subscription_details = _annual_upgrade_params(
-        subscription_item,
-        new_price_id,
-        annual_price.currency,
-        annual_product_id,
-        int(datetime.now(tz=timezone.utc).timestamp()),
-    )
+    now_ts = int(datetime.now(tz=timezone.utc).timestamp())
+    if _subscription_has_active_trial(subscription, now_ts):
+        subscription_details = _trial_plan_change_params(subscription_item, new_price_id)
+    else:
+        subscription_details = _annual_upgrade_params(
+            subscription_item,
+            new_price_id,
+            annual_price.currency,
+            annual_product_id,
+            now_ts,
+        )
     invoice_items = subscription_details.pop("add_invoice_items", None)
     unused_monthly_credit_cents = (
         -invoice_items[0]["price_data"]["unit_amount"] if invoice_items else 0

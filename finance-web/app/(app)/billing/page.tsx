@@ -23,9 +23,12 @@ function ManageSubscription() {
   const token = useAuthToken()
   const { isTrialing, trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd, periodType, refresh } =
     useSubscription()
+  const trialSwitchPlan = periodType === 'annual' ? 'monthly' : 'annual'
+  const trialSwitchPrice = trialSwitchPlan === 'annual' ? '$59.99/year' : '$6.99/month'
+  const currentTrialPrice = periodType === 'annual' ? '$59.99/year' : '$6.99/month'
 
   const [confirmCancel, setConfirmCancel] = useState(false)
-  const [confirmUpgrade, setConfirmUpgrade] = useState(false)
+  const [confirmPlanChange, setConfirmPlanChange] = useState(false)
   const [upgradePreview, setUpgradePreview] = useState<ChangePlanPreview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -38,6 +41,8 @@ function ManageSubscription() {
       await cancelStripeSubscription(token)
       await refresh()
       setConfirmCancel(false)
+      setConfirmPlanChange(false)
+      setUpgradePreview(null)
     } catch {
       setError('Failed to cancel. Please try again.')
     } finally {
@@ -51,6 +56,8 @@ function ManageSubscription() {
     try {
       await reactivateStripeSubscription(token)
       await refresh()
+      setConfirmPlanChange(false)
+      setUpgradePreview(null)
     } catch {
       setError('Failed to reactivate. Please try again.')
     } finally {
@@ -61,7 +68,7 @@ function ManageSubscription() {
   async function handleInitiateUpgrade() {
     if (isTrialing) {
       // No proration during a trial — just show a simple confirmation
-      setConfirmUpgrade(true)
+      setConfirmPlanChange(true)
       return
     }
     setPreviewLoading(true)
@@ -69,7 +76,7 @@ function ManageSubscription() {
     try {
       const preview = await previewChangePlan(token)
       setUpgradePreview(preview)
-      setConfirmUpgrade(true)
+      setConfirmPlanChange(true)
     } catch {
       setError('Failed to load upgrade details. Please try again.')
     } finally {
@@ -77,13 +84,13 @@ function ManageSubscription() {
     }
   }
 
-  async function handleConfirmUpgrade() {
+  async function handleConfirmPlanChange() {
     setBusy(true)
     setError(null)
     try {
-      await changeStripePlan(token, 'annual')
+      await changeStripePlan(token, isTrialing ? trialSwitchPlan : 'annual')
       await refresh()
-      setConfirmUpgrade(false)
+      setConfirmPlanChange(false)
       setUpgradePreview(null)
     } catch {
       setError('Failed to switch plan. Please try again.')
@@ -124,7 +131,7 @@ function ManageSubscription() {
           </div>
 
           {/* Upgrade confirmation with proration details */}
-          {confirmUpgrade && (
+          {confirmPlanChange && (
             <div className="space-y-3 pt-2 border-t border-surface-border">
               <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-4 space-y-1.5">
                 <p className="text-sm font-medium text-cream">Switch to annual billing?</p>
@@ -164,14 +171,14 @@ function ManageSubscription() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={handleConfirmUpgrade}
+                  onClick={handleConfirmPlanChange}
                   disabled={busy}
                   className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors disabled:opacity-50"
                 >
                   {busy ? 'Switching…' : 'Confirm switch to annual'}
                 </button>
                 <button
-                  onClick={() => { setConfirmUpgrade(false); setUpgradePreview(null) }}
+                  onClick={() => { setConfirmPlanChange(false); setUpgradePreview(null) }}
                   disabled={busy}
                   className="flex-1 rounded-xl border border-surface-border py-2.5 text-sm font-medium text-cream-muted hover:text-cream transition-colors disabled:opacity-50"
                 >
@@ -183,8 +190,8 @@ function ManageSubscription() {
         </div>
       )}
 
-      {/* Trial plan info — only upgrade to annual allowed */}
-      {isTrialing && periodType && (
+      {/* Trial plan info — users can choose monthly or annual before billing starts */}
+      {isTrialing && !cancelAtPeriodEnd && periodType && (
         <div className="rounded-xl border border-surface-border px-4 py-3 space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -193,43 +200,43 @@ function ManageSubscription() {
                 Starts after trial ends {formatDate(trialEndsAt)}
               </p>
             </div>
-            {periodType === 'monthly' && (
-              <button
-                onClick={handleInitiateUpgrade}
-                disabled={busy}
-                className="text-xs font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50 whitespace-nowrap ml-4"
-              >
-                Switch to annual (save 29%)
-              </button>
-            )}
+            <button
+              onClick={handleInitiateUpgrade}
+              disabled={busy}
+              className="text-xs font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50 whitespace-nowrap ml-4"
+            >
+              {trialSwitchPlan === 'annual' ? 'Switch to annual (save 29%)' : 'Switch to monthly'}
+            </button>
           </div>
 
-          {/* Trial upgrade confirmation — no proration, just plan change at trial end */}
-          {confirmUpgrade && (
+          {/* Trial plan confirmation — no proration, just plan change at trial end */}
+          {confirmPlanChange && (
             <div className="space-y-3 pt-2 border-t border-surface-border">
               <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-4 space-y-1.5">
-                <p className="text-sm font-medium text-cream">Switch to annual billing?</p>
+                <p className="text-sm font-medium text-cream">
+                  Switch to {trialSwitchPlan} billing?
+                </p>
                 <p className="text-xs text-cream-muted">
                   You won't be charged now. When your trial ends on{' '}
                   <span className="text-cream">{formatDate(trialEndsAt)}</span>, you'll be billed{' '}
-                  <span className="text-cream font-medium">$59.99/year</span> instead of
-                  $6.99/month — saving $23.89 per year.
+                  <span className="text-cream font-medium">{trialSwitchPrice}</span> instead of{' '}
+                  {currentTrialPrice}.
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={handleConfirmUpgrade}
+                  onClick={handleConfirmPlanChange}
                   disabled={busy}
                   className="flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover transition-colors disabled:opacity-50"
                 >
-                  {busy ? 'Switching…' : 'Confirm switch to annual'}
+                  {busy ? 'Switching…' : `Confirm switch to ${trialSwitchPlan}`}
                 </button>
                 <button
-                  onClick={() => setConfirmUpgrade(false)}
+                  onClick={() => setConfirmPlanChange(false)}
                   disabled={busy}
                   className="flex-1 rounded-xl border border-surface-border py-2.5 text-sm font-medium text-cream-muted hover:text-cream transition-colors disabled:opacity-50"
                 >
-                  Keep monthly
+                  Keep {periodType}
                 </button>
               </div>
             </div>
